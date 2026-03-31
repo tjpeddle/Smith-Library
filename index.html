@@ -572,7 +572,14 @@
 
   <div class="tool-group">
     <span class="tool-label">Color</span>
-    <input type="color" id="color-pick" value="#3b82f6" oninput="customColor=this.value" title="Custom color">
+    <div id="swatch-purple"  onclick="setColor('#7c3aed')" title="Purple"  style="width:18px;height:18px;border-radius:3px;background:#7c3aed;cursor:pointer;border:2px solid #a78bfa"></div>
+    <div id="swatch-green"   onclick="setColor('#10b981')" title="Green"   style="width:18px;height:18px;border-radius:3px;background:#10b981;cursor:pointer;border:2px solid transparent"></div>
+    <div id="swatch-blue"    onclick="setColor('#3b82f6')" title="Blue"    style="width:18px;height:18px;border-radius:3px;background:#3b82f6;cursor:pointer;border:2px solid transparent"></div>
+    <div id="swatch-teal"    onclick="setColor('#0891b2')" title="Teal"    style="width:18px;height:18px;border-radius:3px;background:#0891b2;cursor:pointer;border:2px solid transparent"></div>
+    <div id="swatch-amber"   onclick="setColor('#f59e0b')" title="Amber"   style="width:18px;height:18px;border-radius:3px;background:#f59e0b;cursor:pointer;border:2px solid transparent"></div>
+    <div id="swatch-rose"    onclick="setColor('#e11d48')" title="Rose"    style="width:18px;height:18px;border-radius:3px;background:#e11d48;cursor:pointer;border:2px solid transparent"></div>
+    <div id="swatch-gray"    onclick="setColor('#64748b')" title="Gray"    style="width:18px;height:18px;border-radius:3px;background:#64748b;cursor:pointer;border:2px solid transparent"></div>
+    <input type="color" id="color-pick" value="#7c3aed" oninput="setColor(this.value)" title="Custom color" style="width:22px;height:22px">
   </div>
 
   <div class="tool-group">
@@ -673,38 +680,41 @@
     <canvas id="overlay-canvas"></canvas>
 
     <!-- Load overlay -->
-    <div id="load-overlay">
-      <h2>FLOOR PLAN EDITOR</h2>
-      <p>Drop or browse your sketch — then choose how to import it.</p>
+    <div id="load-overlay" onclick="handleOverlayClick(event)">
+      <div id="load-overlay-box" style="display:flex;flex-direction:column;align-items:center;gap:16px;position:relative;">
+        <button onclick="dismissOverlay()" title="Close" style="position:absolute;top:-14px;right:-14px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:10;">✕</button>
+        <h2>FLOOR PLAN EDITOR</h2>
+        <p>Drop or browse your sketch — then choose how to import it.</p>
 
-      <div class="load-drop" id="drop-zone">
-        <span class="big-icon">🗺</span>
-        <span id="drop-label">Drop sketch here or click to browse</span>
-        <span style="font-size:10px;color:var(--muted)">PNG, JPG, or PDF</span>
+        <div class="load-drop" id="drop-zone">
+          <span class="big-icon">🗺</span>
+          <span id="drop-label">Drop sketch here or click to browse</span>
+          <span style="font-size:10px;color:var(--muted)">PNG, JPG, or PDF</span>
+        </div>
+        <input type="file" id="file-input" accept="image/*,.pdf,application/pdf" style="display:none">
+
+        <!-- Mode choice — shown after file picked -->
+        <div id="import-mode" style="display:none;flex-direction:column;gap:10px;width:320px;margin-top:4px">
+          <div style="font-size:11px;color:var(--muted);text-align:center;letter-spacing:1px;text-transform:uppercase">How do you want to import?</div>
+          <button class="import-mode-btn ai" onclick="startAIExtract()">
+            <span style="font-size:22px">🤖</span>
+            <div>
+              <div style="font-weight:700;font-size:13px;color:#a78bfa">AI Extract — Editable Elements</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">Claude reads the sketch and generates walls, rooms, doors, desks, and labels as fully editable objects</div>
+            </div>
+          </button>
+          <button class="import-mode-btn" onclick="startUnderlayOnly()">
+            <span style="font-size:22px">🖼</span>
+            <div>
+              <div style="font-weight:700;font-size:13px">Underlay Only</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">Show the sketch as a faded background — draw on top of it manually</div>
+            </div>
+          </button>
+          <button class="load-skip" onclick="dismissOverlay()" style="margin-top:2px">Skip — Start Blank</button>
+        </div>
+
+        <button class="load-skip" id="skip-btn" onclick="dismissOverlay()">Skip — Start Blank</button>
       </div>
-      <input type="file" id="file-input" accept="image/*,.pdf,application/pdf" style="display:none">
-
-      <!-- Mode choice — shown after file picked -->
-      <div id="import-mode" style="display:none;flex-direction:column;gap:10px;width:320px;margin-top:4px">
-        <div style="font-size:11px;color:var(--muted);text-align:center;letter-spacing:1px;text-transform:uppercase">How do you want to import?</div>
-        <button class="import-mode-btn ai" onclick="startAIExtract()">
-          <span style="font-size:22px">🤖</span>
-          <div>
-            <div style="font-weight:700;font-size:13px;color:#a78bfa">AI Extract — Editable Elements</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px">Claude reads the sketch and generates walls, rooms, doors, desks, and labels as fully editable objects</div>
-          </div>
-        </button>
-        <button class="import-mode-btn" onclick="startUnderlayOnly()">
-          <span style="font-size:22px">🖼</span>
-          <div>
-            <div style="font-weight:700;font-size:13px">Underlay Only</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px">Show the sketch as a faded background — draw on top of it manually</div>
-          </div>
-        </button>
-        <button class="load-skip" onclick="dismissOverlay()" style="margin-top:2px">Skip — Start Blank</button>
-      </div>
-
-      <button class="load-skip" id="skip-btn" onclick="dismissOverlay()">Skip — Start Blank</button>
     </div>
 
     <!-- AI Progress overlay -->
@@ -832,7 +842,21 @@ let currentTool = 'select';
 let snapOn = true;
 let snapSize = 20;
 let wallThickness = 6;
-let customColor = '#3b82f6';
+let customColor = '#7c3aed';
+
+function setColor(hex) {
+  customColor = hex;
+  document.getElementById('color-pick').value = hex;
+  // Update swatch borders
+  const swatchIds = ['purple','green','blue','teal','amber','rose','gray'];
+  const swatchHex = ['#7c3aed','#10b981','#3b82f6','#0891b2','#f59e0b','#e11d48','#64748b'];
+  swatchIds.forEach((id, i) => {
+    const el = document.getElementById('swatch-'+id);
+    if (el) el.style.border = '2px solid ' + (swatchHex[i].toLowerCase() === hex.toLowerCase() ? '#fff' : 'transparent');
+  });
+  // Apply to selected element if any
+  if (selected) { selProp('color', hex); }
+}
 let sketchImage = null;
 let sketchOpacity = 0.4;
 let layers = { sketch: true, walls: true, doors: true, windows: true, furniture: true, labels: true };
@@ -854,6 +878,7 @@ let spaceDown = false;
 let dragEl = null;
 let dragOffset = { x: 0, y: 0 };
 let dragStartPos = null;
+let resizeHandle = null; // 'nw','n','ne','e','se','s','sw','w', or wall endpoint 'p1','p2'
 
 // ═══════════════════════════════════════════════════
 //  CANVAS SETUP
@@ -998,47 +1023,64 @@ function drawElement(ctx, el, sel, hov) {
 }
 
 function drawWall(ctx, el, hl) {
-  ctx.lineCap = 'round';
+  const col = el.color || '#3b82f6';
+  ctx.lineCap = 'square';
   ctx.lineWidth = el.thickness || wallThickness;
-  ctx.strokeStyle = hl || el.color || '#3b82f6';
-  if (hl) {
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = hl;
-  }
+  ctx.strokeStyle = hl || col;
+  if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = hl; }
   ctx.beginPath();
   ctx.moveTo(el.x1, el.y1);
   ctx.lineTo(el.x2, el.y2);
   ctx.stroke();
   ctx.shadowBlur = 0;
-  // End dots
-  ctx.fillStyle = hl || el.color || '#3b82f6';
-  ctx.beginPath(); ctx.arc(el.x1, el.y1, (el.thickness||wallThickness)/2, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(el.x2, el.y2, (el.thickness||wallThickness)/2, 0, Math.PI*2); ctx.fill();
 }
 
 function drawDoor(ctx, el, hl) {
-  const w = el.w || 40, h = el.h || 6;
+  const w = el.w || 30, h = el.h || 6;
   const col = hl || el.color || '#10b981';
+  ctx.save();
+  // Rotate if needed
+  if (el.rotation) {
+    const cx = el.x + w/2, cy = el.y + h/2;
+    ctx.translate(cx, cy);
+    ctx.rotate(el.rotation * Math.PI/180);
+    ctx.translate(-cx, -cy);
+  }
   ctx.strokeStyle = col;
-  ctx.fillStyle = col + '22';
   ctx.lineWidth = 2;
-  if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
-  // Frame
+  if (hl) { ctx.shadowBlur = 6; ctx.shadowColor = col; }
+
+  // Door frame: thin rect on wall
+  ctx.fillStyle = col + '30';
+  ctx.fillRect(el.x, el.y, w, h);
   ctx.strokeRect(el.x, el.y, w, h);
-  // Arc swing
+
+  // Door leaf: line from hinge corner
+  const hingeX = el.x, hingeY = el.y + h/2;
   ctx.beginPath();
-  ctx.arc(el.x, el.y + h/2, w, -Math.PI/2, 0);
+  ctx.moveTo(hingeX, hingeY);
+  ctx.lineTo(hingeX + w, hingeY);
+  ctx.stroke();
+
+  // Swing arc (quarter circle)
+  ctx.beginPath();
+  ctx.arc(hingeX, hingeY, w, 0, -Math.PI/2, true);
   ctx.setLineDash([4, 3]);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.shadowBlur = 0;
-  // Label
+
+  // Hinge dot
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(hingeX, hingeY, 3, 0, Math.PI*2); ctx.fill();
+
   if (el.label) {
     ctx.fillStyle = col;
-    ctx.font = '9px Barlow';
+    ctx.font = 'bold 9px Barlow';
     ctx.textAlign = 'center';
     ctx.fillText(el.label, el.x + w/2, el.y - 4);
   }
+  ctx.restore();
 }
 
 function drawWindow(ctx, el, hl) {
@@ -1150,24 +1192,46 @@ function drawLabel(ctx, el, hl) {
 }
 
 function drawSelectionHandles(ctx, el) {
-  const bb = getBounds(el);
-  if (!bb) return;
+  const pts = getHandlePositions(el);
   ctx.save();
-  ctx.strokeStyle = '#6366f1';
-  ctx.setLineDash([4, 3]);
-  ctx.lineWidth = 1;
-  ctx.strokeRect(bb.x - 4, bb.y - 4, bb.w + 8, bb.h + 8);
-  ctx.setLineDash([]);
-  // Handles
-  const handles = [
-    [bb.x-4, bb.y-4], [bb.x+bb.w/2, bb.y-4], [bb.x+bb.w+4, bb.y-4],
-    [bb.x-4, bb.y+bb.h/2], [bb.x+bb.w+4, bb.y+bb.h/2],
-    [bb.x-4, bb.y+bb.h+4], [bb.x+bb.w/2, bb.y+bb.h+4], [bb.x+bb.w+4, bb.y+bb.h+4]
-  ];
-  ctx.fillStyle = '#6366f1';
-  handles.forEach(([hx, hy]) => {
-    ctx.beginPath(); ctx.arc(hx, hy, 4, 0, Math.PI*2); ctx.fill();
-  });
+
+  if (el.type === 'wall') {
+    // Dashed line between endpoints
+    ctx.strokeStyle = '#6366f1';
+    ctx.setLineDash([5,4]);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(el.x1,el.y1); ctx.lineTo(el.x2,el.y2); ctx.stroke();
+    ctx.setLineDash([]);
+    // Endpoint handles
+    for (const pt of Object.values(pts)) {
+      ctx.fillStyle = '#6366f1';
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, 6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+  } else {
+    const bb = getBounds(el);
+    if (!bb) { ctx.restore(); return; }
+    // Selection box
+    ctx.strokeStyle = '#6366f1';
+    ctx.setLineDash([4,3]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(bb.x-6, bb.y-6, bb.w+12, bb.h+12);
+    ctx.setLineDash([]);
+    // Corner + midpoint handles
+    for (const [name, pt] of Object.entries(pts)) {
+      const isCorner = name.length === 2;
+      ctx.fillStyle = isCorner ? '#6366f1' : '#818cf8';
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      if (isCorner) {
+        ctx.fillRect(pt.x-5, pt.y-5, 10, 10);
+        ctx.strokeRect(pt.x-5, pt.y-5, 10, 10);
+      } else {
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, 5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      }
+    }
+  }
   ctx.restore();
 }
 
@@ -1182,6 +1246,90 @@ function getBounds(el) {
     case 'label': return { x: el.x, y: el.y, w: (el.text||'Label').length*8, h: el.fontSize||13 };
     default: return { x: el.x, y: el.y, w: el.w||60, h: el.h||40 };
   }
+}
+
+// ── Resize handles ────────────────────────────────
+const HANDLE_NAMES = ['nw','n','ne','e','se','s','sw','w'];
+
+function getHandlePositions(el) {
+  if (el.type === 'wall') {
+    return { p1: {x:el.x1,y:el.y1}, p2: {x:el.x2,y:el.y2} };
+  }
+  const bb = getBounds(el);
+  if (!bb) return {};
+  const {x,y,w,h} = bb;
+  return {
+    nw:{x,y}, n:{x:x+w/2,y}, ne:{x:x+w,y},
+    e:{x:x+w,y:y+h/2},
+    se:{x:x+w,y:y+h}, s:{x:x+w/2,y:y+h}, sw:{x,y:y+h},
+    w:{x,y:y+h/2}
+  };
+}
+
+function getResizeHandle(el, wx, wy) {
+  const PAD = 8 / zoom;
+  const pts = getHandlePositions(el);
+  for (const [name, pt] of Object.entries(pts)) {
+    if (Math.abs(wx - pt.x) < PAD && Math.abs(wy - pt.y) < PAD) return name;
+  }
+  return null;
+}
+
+function resizeElement(el, handle, nx, ny) {
+  if (el.type === 'wall') {
+    if (handle === 'p1') { el.x1 = nx; el.y1 = ny; }
+    if (handle === 'p2') { el.x2 = nx; el.y2 = ny; }
+    return;
+  }
+  const orig = dragStartPos;
+  const r = orig.x + orig.w, b = orig.y + orig.h;
+  switch(handle) {
+    case 'nw': el.x=nx; el.y=ny; el.w=r-nx; el.h=b-ny; break;
+    case 'n':  el.y=ny; el.h=b-ny; break;
+    case 'ne': el.y=ny; el.w=nx-orig.x; el.h=b-ny; break;
+    case 'e':  el.w=nx-orig.x; break;
+    case 'se': el.w=nx-orig.x; el.h=ny-orig.y; break;
+    case 's':  el.h=ny-orig.y; break;
+    case 'sw': el.x=nx; el.w=r-nx; el.h=ny-orig.y; break;
+    case 'w':  el.x=nx; el.w=r-nx; break;
+  }
+  // Minimum size
+  if (el.w < 10) el.w = 10;
+  if (el.h !== undefined && el.h < 10) el.h = 10;
+}
+
+// ── Snap door to nearest wall ─────────────────────
+function snapDoorToWall(door) {
+  const SNAP_DIST = 20;
+  const dcx = door.x + (door.w||30)/2;
+  const dcy = door.y + (door.h||6)/2;
+  let best = null, bestDist = SNAP_DIST;
+  for (const el of elements) {
+    if (el.type !== 'wall') continue;
+    const d = distToSegment(dcx, dcy, el.x1, el.y1, el.x2, el.y2);
+    if (d < bestDist) { bestDist = d; best = el; }
+  }
+  if (!best) return;
+  // Project door center onto wall line
+  const dx = best.x2 - best.x1, dy = best.y2 - best.y1;
+  const len2 = dx*dx + dy*dy;
+  if (!len2) return;
+  const t = ((dcx-best.x1)*dx + (dcy-best.y1)*dy) / len2;
+  const tc = Math.max(0, Math.min(1, t));
+  const px = best.x1 + tc*dx, py = best.y1 + tc*dy;
+  // Place door centered on wall, offset perpendicular
+  const angle = Math.atan2(dy, dx);
+  door.rotation = Math.round(angle * 180 / Math.PI);
+  door.x = px - (door.w||30)/2;
+  door.y = py - (door.h||6)/2;
+}
+
+// ── Resize cursor by handle ───────────────────────
+function getHandleCursor(handle) {
+  const map = { nw:'nw-resize',n:'n-resize',ne:'ne-resize',e:'e-resize',
+    se:'se-resize',s:'s-resize',sw:'sw-resize',w:'w-resize',
+    p1:'crosshair',p2:'crosshair' };
+  return map[handle] || 'default';
 }
 
 function drawPreview(ctx) {
@@ -1293,17 +1441,35 @@ wrap.addEventListener('mousemove', (e) => {
   }
 
   if (dragEl) {
-    const wp = toWorld(sx, sy);
-    const snp = snapPt(wp.x - dragOffset.x, wp.y - dragOffset.y);
-    moveElement(dragEl, snp.x, snp.y);
+    const wp2 = toWorld(sx, sy);
+    const snp = snapPt(wp2.x, wp2.y);
+
+    if (resizeHandle !== null) {
+      // Resize mode
+      resizeElement(dragEl, resizeHandle, snp.x, snp.y);
+    } else {
+      // Move mode
+      const nx = snp.x - dragOffset.x;
+      const ny = snp.y - dragOffset.y;
+      moveElement(dragEl, snap(nx), snap(ny));
+
+      // Snap door to nearest wall midpoint
+      if (dragEl.type === 'door') snapDoorToWall(dragEl);
+    }
     renderDraw();
+    updatePropsPanel();
     return;
   }
 
-  // Hover highlight
+  // Hover highlight + resize cursor
   if (currentTool === 'select' || currentTool === 'eraser') {
     const prev = hovering;
     hovering = hitTest(mouseWorld.x, mouseWorld.y);
+    // Resize cursor when over handle of selected element
+    if (selected && currentTool === 'select') {
+      const h = getResizeHandle(selected, mouseWorld.x, mouseWorld.y);
+      wrap.style.cursor = h ? getHandleCursor(h) : (hovering ? 'move' : 'default');
+    }
     if (hovering !== prev) renderDraw();
   }
 });
@@ -1331,17 +1497,35 @@ wrap.addEventListener('mousedown', (e) => {
   }
 
   if (currentTool === 'select') {
+    // Check resize handle first (if something is selected)
+    if (selected) {
+      const h = getResizeHandle(selected, wp.x, wp.y);
+      if (h !== null) {
+        pushHistory();
+        resizeHandle = h;
+        dragEl = selected;
+        dragStartPos = JSON.parse(JSON.stringify(selected));
+        renderDraw();
+        return;
+      }
+    }
     const hit = hitTest(wp.x, wp.y);
     if (hit) {
+      if (hit !== selected) pushHistory();
       selected = hit;
-      const bb = getBounds(hit);
-      if (bb) dragOffset = { x: wp.x - (hit.x1 !== undefined ? hit.x1 : hit.x), y: wp.y - (hit.y1 !== undefined ? hit.y1 : hit.y) };
-      dragEl = hit;
       dragStartPos = JSON.parse(JSON.stringify(hit));
+      if (hit.type === 'wall') {
+        dragOffset = { x: wp.x - hit.x1, y: wp.y - hit.y1 };
+      } else {
+        dragOffset = { x: wp.x - hit.x, y: wp.y - hit.y };
+      }
+      dragEl = hit;
+      resizeHandle = null;
       renderDraw();
       updatePropsPanel();
     } else {
       selected = null;
+      resizeHandle = null;
       renderDraw();
       updatePropsPanel();
     }
@@ -1384,10 +1568,11 @@ wrap.addEventListener('mouseup', (e) => {
   }
 
   if (dragEl) {
-    // If moved, push history
-    if (dragStartPos) pushHistory();
     dragEl = null;
     dragStartPos = null;
+    resizeHandle = null;
+    wrap.style.cursor = '';
+    renderDraw();
     return;
   }
 
@@ -1452,7 +1637,7 @@ function finishDraw(s, e2) {
       elements.push({ type:'wall', layer:'walls', x1:s.x, y1:s.y, x2:e2.x, y2:e2.y, thickness:wallThickness, color:col });
       break;
     case 'door':
-      elements.push({ type:'door', layer:'doors', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||40, h:Math.abs(dy)||8, color:col, label:'' });
+      elements.push({ type:'door', layer:'doors', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||30, h:Math.abs(dy)||6, color:col, label:'', rotation:0 });
       break;
     case 'window':
       elements.push({ type:'window', layer:'windows', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||50, h:Math.abs(dy)||8, color:col });
@@ -1510,26 +1695,26 @@ document.addEventListener('keyup', (e) => {
 });
 
 // ═══════════════════════════════════════════════════
-//  UNDO / REDO
+//  UNDO / REDO  — snapshot BEFORE every change
 // ═══════════════════════════════════════════════════
 function pushHistory() {
   history.push(JSON.parse(JSON.stringify(elements)));
-  if (history.length > 60) history.shift();
+  if (history.length > 80) history.shift();
   redoStack = [];
 }
 function undo() {
-  if (!history.length) return;
+  if (!history.length) { showToast('Nothing to undo'); return; }
   redoStack.push(JSON.parse(JSON.stringify(elements)));
   elements = history.pop();
-  selected = null;
-  renderDraw(); updateStatusBar(); showToast('Undo');
+  selected = null; hovering = null;
+  renderDraw(); updateStatusBar(); updatePropsPanel(); showToast('Undo ↩');
 }
 function redo() {
-  if (!redoStack.length) return;
+  if (!redoStack.length) { showToast('Nothing to redo'); return; }
   history.push(JSON.parse(JSON.stringify(elements)));
   elements = redoStack.pop();
-  selected = null;
-  renderDraw(); updateStatusBar(); showToast('Redo');
+  selected = null; hovering = null;
+  renderDraw(); updateStatusBar(); updatePropsPanel(); showToast('Redo ↪');
 }
 
 // ═══════════════════════════════════════════════════
@@ -1595,42 +1780,65 @@ function updatePropsPanel() {
     cont.innerHTML = '<span style="color:var(--muted);font-size:11px">Select an element to edit.</span>';
     return;
   }
-  let html = `<div class="prop-row"><label>Type</label><span style="color:var(--accent)">${el.type}</span></div>`;
 
-  if (el.type !== 'wall') {
-    html += `<div class="prop-row"><label>X</label><input type="number" value="${Math.round(el.x)}" onchange="selProp('x',+this.value)"></div>`;
-    html += `<div class="prop-row"><label>Y</label><input type="number" value="${Math.round(el.y)}" onchange="selProp('y',+this.value)"></div>`;
-  }
-  if (el.w !== undefined) {
-    html += `<div class="prop-row"><label>W</label><input type="number" value="${Math.round(el.w)}" onchange="selProp('w',+this.value)"></div>`;
-  }
-  if (el.h !== undefined && el.type !== 'chair') {
-    html += `<div class="prop-row"><label>H</label><input type="number" value="${Math.round(el.h)}" onchange="selProp('h',+this.value)"></div>`;
-  }
+  const SWATCHES = [
+    ['Purple','#7c3aed'],['Green','#10b981'],['Blue','#3b82f6'],
+    ['Teal','#0891b2'],['Amber','#f59e0b'],['Rose','#e11d48'],
+    ['Gray','#64748b'],['White','#e2e8f0'],
+  ];
+
+  let html = `<div style="font-size:10px;color:var(--muted);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase">${el.type} · ${el.layer}</div>`;
+
+  // Position
   if (el.type === 'wall') {
+    html += `<div class="prop-row"><label>X1</label><input type="number" value="${Math.round(el.x1)}" onchange="selProp('x1',+this.value)"></div>`;
+    html += `<div class="prop-row"><label>Y1</label><input type="number" value="${Math.round(el.y1)}" onchange="selProp('y1',+this.value)"></div>`;
+    html += `<div class="prop-row"><label>X2</label><input type="number" value="${Math.round(el.x2)}" onchange="selProp('x2',+this.value)"></div>`;
+    html += `<div class="prop-row"><label>Y2</label><input type="number" value="${Math.round(el.y2)}" onchange="selProp('y2',+this.value)"></div>`;
     html += `<div class="prop-row"><label>Thickness</label><input type="number" value="${el.thickness||6}" onchange="selProp('thickness',+this.value)"></div>`;
-  }
-  if (el.label !== undefined) {
-    html += `<div class="prop-row" style="flex-direction:column;align-items:flex-start;gap:3px"><label>Label</label><input type="text" value="${el.label||''}" onchange="selProp('label',this.value)" style="width:100%"></div>`;
-  }
-  if (el.text !== undefined) {
-    html += `<div class="prop-row" style="flex-direction:column;align-items:flex-start;gap:3px"><label>Text</label><input type="text" value="${el.text||''}" onchange="selProp('text',this.value)" style="width:100%"></div>`;
-    html += `<div class="prop-row"><label>Size</label><input type="number" value="${el.fontSize||13}" onchange="selProp('fontSize',+this.value)"></div>`;
-  }
-  html += `<div class="prop-row"><label>Color</label><input type="color" value="${el.color||'#3b82f6'}" oninput="selProp('color',this.value)"></div>`;
-  if (el.rotation !== undefined) {
-    html += `<div class="prop-row"><label>Rotate°</label><input type="number" value="${el.rotation||0}" onchange="selProp('rotation',+this.value)"></div>`;
   } else {
-    html += `<div class="prop-row"><label>Rotate°</label><input type="number" value="0" onchange="selProp('rotation',+this.value)"></div>`;
+    html += `<div class="prop-row"><label>X</label><input type="number" value="${Math.round(el.x||0)}" onchange="selProp('x',+this.value)"></div>`;
+    html += `<div class="prop-row"><label>Y</label><input type="number" value="${Math.round(el.y||0)}" onchange="selProp('y',+this.value)"></div>`;
+    if (el.w !== undefined) html += `<div class="prop-row"><label>W</label><input type="number" value="${Math.round(el.w)}" onchange="selProp('w',+this.value)"></div>`;
+    if (el.h !== undefined && el.type !== 'chair') html += `<div class="prop-row"><label>H</label><input type="number" value="${Math.round(el.h)}" onchange="selProp('h',+this.value)"></div>`;
   }
-  html += `<button class="del-btn" onclick="deleteSelected()">🗑 Delete Element</button>`;
+
+  if (el.rotation !== undefined || el.type !== 'wall') {
+    html += `<div class="prop-row"><label>Rotate°</label><input type="number" value="${el.rotation||0}" onchange="selProp('rotation',+this.value)"></div>`;
+  }
+
+  // Label/text
+  const labelKey = el.text !== undefined ? 'text' : (el.label !== undefined ? 'label' : null);
+  if (labelKey) {
+    html += `<div class="prop-row" style="flex-direction:column;align-items:flex-start;gap:3px">
+      <label>${labelKey === 'text' ? 'Text' : 'Label'}</label>
+      <input type="text" value="${(el[labelKey]||'').replace(/"/g,'&quot;')}" onchange="selProp('${labelKey}',this.value)" style="width:100%">
+    </div>`;
+  }
+  if (el.fontSize !== undefined) {
+    html += `<div class="prop-row"><label>Font size</label><input type="number" value="${el.fontSize||13}" onchange="selProp('fontSize',+this.value)"></div>`;
+  }
+
+  // Color swatches
+  html += `<div style="margin-top:8px;margin-bottom:4px;font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Color</div>`;
+  html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">`;
+  for (const [name, hex] of SWATCHES) {
+    const active = (el.color||'').toLowerCase() === hex.toLowerCase();
+    html += `<div title="${name}" onclick="selProp('color','${hex}')" style="width:20px;height:20px;border-radius:3px;background:${hex};cursor:pointer;border:2px solid ${active?'#fff':'transparent'};box-sizing:border-box"></div>`;
+  }
+  html += `</div>`;
+  html += `<div class="prop-row"><label>Custom</label><input type="color" value="${el.color||'#3b82f6'}" oninput="selProp('color',this.value)"></div>`;
+
+  html += `<button class="del-btn" onclick="deleteSelected()">🗑 Delete</button>`;
   cont.innerHTML = html;
 }
 
 function selProp(k, v) {
   if (!selected) return;
+  pushHistory();
   selected[k] = v;
   renderDraw();
+  updatePropsPanel();
 }
 function deleteSelected() {
   if (!selected) return;
@@ -1997,6 +2205,11 @@ function dismissOverlay() {
   document.getElementById('load-overlay').style.display = 'none';
 }
 
+function handleOverlayClick(e) {
+  // Dismiss if clicking the dark backdrop, not the inner box
+  if (e.target === document.getElementById('load-overlay')) dismissOverlay();
+}
+
 // ═══════════════════════════════════════════════════
 //  EXPORT MODAL
 // ═══════════════════════════════════════════════════
@@ -2147,6 +2360,7 @@ document.getElementById('json-input').addEventListener('change', (e) => {
       if (data.pan) pan = data.pan;
       if (data.zoom) zoom = data.zoom;
       selected = null;
+      dismissOverlay();
       renderAll(); updateStatusBar(); updatePropsPanel();
       hideExportModal();
       showToast(`Project "${data.title || 'untitled'}" loaded ✓`);
@@ -2197,6 +2411,8 @@ document.getElementById('sb-date').textContent = new Date().toLocaleDateString()
 // Init pan to center
 pan = { x: 40, y: 40 };
 renderAll();
+// Auto-dismiss overlay if canvas already has content
+if (elements.length > 0) dismissOverlay();
 </script>
 </body>
 </html>
