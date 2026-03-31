@@ -2690,8 +2690,8 @@ document.getElementById('sb-date').textContent = new Date().toLocaleDateString()
 // Init pan to center
 pan = { x: 40, y: 40 };
 renderAll();
-// Auto-dismiss overlay if canvas already has content
-if (elements.length > 0) dismissOverlay();
+// Always dismiss the load overlay — project loads via header button now
+dismissOverlay();
 </script>
 </body>
 </html>
