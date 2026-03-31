@@ -1944,9 +1944,11 @@ function startUnderlayOnly() {
 }
 
 async function loadPDF(file) {
-  // Show loading state on the drop zone
+  // Show status WITHOUT touching the drop zone's structure
   const dz = document.getElementById('drop-zone');
-  dz.innerHTML = '<span class="big-icon">⏳</span><span>Rendering PDF…</span>';
+  dz.style.borderColor = '#f59e0b';
+  dz.style.color = '#f59e0b';
+  document.getElementById('drop-label').textContent = '⏳ Rendering PDF…';
 
   try {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -1956,7 +1958,6 @@ async function loadPDF(file) {
     const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const totalPages = pdfDoc.numPages;
 
-    // If multi-page, ask which page; otherwise just use page 1
     let pageNum = 1;
     if (totalPages > 1) {
       const answer = prompt(`PDF has ${totalPages} pages. Which page is the floor plan? (1–${totalPages})`, '1');
@@ -1975,21 +1976,21 @@ async function loadPDF(file) {
 
     await page.render({ canvasContext: offCtx, viewport }).promise;
 
-    // Convert to an Image so renderBG can drawImage it
     const dataURL = offscreen.toDataURL('image/png');
     const img = new Image();
     img.onload = () => {
       pendingImageDataURL = dataURL;
       pendingImageObj = img;
-      showImportModeChoice('floor-plan.pdf (page ' + pageNum + ')');
+      showImportModeChoice(file.name + ' (page ' + pageNum + ')');
     };
     img.src = dataURL;
 
   } catch (err) {
     console.error(err);
-    showToast('⚠ Could not render PDF — try a PNG/JPG export of the page');
-    // Reset drop zone
-    dz.querySelector('#drop-label').textContent = 'Drop sketch here or click to browse';
+    document.getElementById('drop-label').textContent = '⚠ PDF failed — try dropping a PNG instead';
+    dz.style.borderColor = '#ef4444';
+    dz.style.color = '#ef4444';
+    showToast('⚠ Could not render PDF');
   }
 }
 
