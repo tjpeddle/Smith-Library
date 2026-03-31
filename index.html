@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OARS Floor Plan Editor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap');
 
@@ -363,6 +364,102 @@
   .ctx-item.danger:hover { background: rgba(239,68,68,0.15); color: #f87171; }
   .ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
 
+  /* Export Modal */
+  #export-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  #export-modal.show { display: flex; }
+  .export-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    width: 440px;
+    max-width: 95vw;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+  }
+  .export-box h2 {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+  .export-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .export-opt {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    transition: all 0.15s;
+    text-align: left;
+    font-family: 'Barlow', sans-serif;
+    color: var(--text);
+  }
+  .export-opt:hover { border-color: var(--accent); background: rgba(59,130,246,0.1); }
+  .export-opt .eo-icon { font-size: 22px; }
+  .export-opt .eo-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .export-opt .eo-desc { font-size: 10px; color: var(--muted); line-height: 1.4; }
+  .export-opt.green:hover { border-color: var(--accent2); background: rgba(16,185,129,0.1); }
+  .export-opt.amber:hover { border-color: var(--accent3); background: rgba(245,158,11,0.1); }
+  .export-opt.purple:hover { border-color: #7c3aed; background: rgba(124,58,237,0.1); }
+  .export-settings {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+  .export-settings .sp-title { margin-bottom: 10px; }
+  .es-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .es-row label { color: var(--muted); }
+  .es-row input[type=text], .es-row select {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    width: 160px;
+    font-family: 'Barlow', sans-serif;
+  }
+  .es-row input[type=checkbox] { accent-color: var(--accent); width:16px; height:16px; cursor:pointer; }
+  .export-cancel {
+    width: 100%;
+    padding: 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'Barlow', sans-serif;
+    transition: all 0.15s;
+  }
+  .export-cancel:hover { border-color: var(--text); color: var(--text); }
+
   /* Toast */
   #toast {
     position: fixed;
@@ -391,7 +488,7 @@
   <h1>OARS · Floor Plan Editor</h1>
   <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
     <button class="tbtn" onclick="importImage()" title="Load sketch image">📂 Load Image</button>
-    <button class="tbtn" onclick="exportPNG()" title="Export as PNG">💾 Export PNG</button>
+    <button class="tbtn" onclick="showExportModal()" title="Export options" style="color:#10b981;border-color:#10b981;background:rgba(16,185,129,0.1)">💾 Export ▾</button>
     <button class="tbtn" onclick="undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
     <button class="tbtn" onclick="redo()" title="Redo (Ctrl+Y)">↪ Redo</button>
     <button class="tbtn" onclick="clearAll()" style="color:#f87171" title="Clear drawing">🗑 Clear</button>
@@ -564,9 +661,9 @@
       <div class="load-drop" id="drop-zone">
         <span class="big-icon">🗺</span>
         <span>Drop sketch here or click to browse</span>
-        <span style="font-size:10px;color:var(--muted)">PNG, JPG, or PDF image</span>
+        <span style="font-size:10px;color:var(--muted)">PNG, JPG, or PDF (scanned floor plan)</span>
       </div>
-      <input type="file" id="file-input" accept="image/*" style="display:none">
+      <input type="file" id="file-input" accept="image/*,.pdf,application/pdf" style="display:none">
       <button class="load-skip" onclick="dismissOverlay()">Skip — Start Blank</button>
     </div>
   </div>
@@ -595,6 +692,73 @@
 
 <!-- TOAST -->
 <div id="toast"></div>
+
+<!-- EXPORT MODAL -->
+<div id="export-modal">
+  <div class="export-box">
+    <h2>💾 Export Floor Plan</h2>
+
+    <div class="export-settings">
+      <div class="sp-title">Settings</div>
+      <div class="es-row">
+        <label>File name</label>
+        <input type="text" id="ex-filename" value="OARS-FloorPlan">
+      </div>
+      <div class="es-row">
+        <label>Include sketch underlay</label>
+        <input type="checkbox" id="ex-sketch" checked>
+      </div>
+      <div class="es-row">
+        <label>Include grid</label>
+        <input type="checkbox" id="ex-grid">
+      </div>
+      <div class="es-row">
+        <label>White background</label>
+        <input type="checkbox" id="ex-white">
+      </div>
+      <div class="es-row">
+        <label>Add title stamp</label>
+        <input type="checkbox" id="ex-stamp" checked>
+      </div>
+    </div>
+
+    <div class="export-options">
+      <button class="export-opt" onclick="exportPNG()">
+        <span class="eo-icon">🖼</span>
+        <span class="eo-title">PNG Image</span>
+        <span class="eo-desc">Full resolution flat image. Best for sharing or printing.</span>
+      </button>
+      <button class="export-opt green" onclick="exportPNGClean()">
+        <span class="eo-icon">📋</span>
+        <span class="eo-title">PNG — No Sketch</span>
+        <span class="eo-desc">Clean drawing only, no background image. White background.</span>
+      </button>
+      <button class="export-opt amber" onclick="exportPrint()">
+        <span class="eo-icon">🖨</span>
+        <span class="eo-title">Print / PDF</span>
+        <span class="eo-desc">Opens print dialog. Save as PDF from there.</span>
+      </button>
+      <button class="export-opt purple" onclick="exportJSON()">
+        <span class="eo-icon">💿</span>
+        <span class="eo-title">Save Project</span>
+        <span class="eo-desc">Saves all elements as JSON. Reload later to keep editing.</span>
+      </button>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <button class="export-opt" style="width:100%;flex-direction:row;align-items:center;gap:10px" onclick="importJSON()">
+        <span class="eo-icon">📂</span>
+        <div>
+          <div class="eo-title">Load Saved Project</div>
+          <div class="eo-desc">Open a previously saved .json project file to continue editing.</div>
+        </div>
+      </button>
+    </div>
+
+    <button class="export-cancel" onclick="hideExportModal()">Cancel</button>
+  </div>
+</div>
+<input type="file" id="json-input" accept=".json" style="display:none">
 
 <script>
 // ═══════════════════════════════════════════════════
@@ -1527,15 +1691,70 @@ dropZone.addEventListener('drop', (e) => {
 });
 
 function loadImageFile(file) {
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload = () => {
-    sketchImage = img;
-    dismissOverlay();
-    fitToWindow();
-    showToast('Sketch loaded — adjust opacity slider to fade');
-  };
-  img.src = url;
+  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+    loadPDF(file);
+  } else {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      sketchImage = img;
+      dismissOverlay();
+      fitToWindow();
+      showToast('Sketch loaded — use opacity slider to fade');
+    };
+    img.src = url;
+  }
+}
+
+async function loadPDF(file) {
+  // Show loading state on the drop zone
+  const dz = document.getElementById('drop-zone');
+  dz.innerHTML = '<span class="big-icon">⏳</span><span>Rendering PDF…</span>';
+
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const totalPages = pdfDoc.numPages;
+
+    // If multi-page, ask which page; otherwise just use page 1
+    let pageNum = 1;
+    if (totalPages > 1) {
+      const answer = prompt(`PDF has ${totalPages} pages. Which page is the floor plan? (1–${totalPages})`, '1');
+      pageNum = Math.max(1, Math.min(totalPages, parseInt(answer) || 1));
+    }
+
+    const page = await pdfDoc.getPage(pageNum);
+
+    // Render at 2× scale for sharpness
+    const SCALE = 2;
+    const viewport = page.getViewport({ scale: SCALE });
+    const offscreen = document.createElement('canvas');
+    offscreen.width  = viewport.width;
+    offscreen.height = viewport.height;
+    const offCtx = offscreen.getContext('2d');
+
+    await page.render({ canvasContext: offCtx, viewport }).promise;
+
+    // Convert to an Image so renderBG can drawImage it
+    const dataURL = offscreen.toDataURL('image/png');
+    const img = new Image();
+    img.onload = () => {
+      sketchImage = img;
+      dismissOverlay();
+      fitToWindow();
+      showToast(`PDF page ${pageNum} loaded — use opacity slider to fade`);
+    };
+    img.src = dataURL;
+
+  } catch (err) {
+    console.error(err);
+    showToast('⚠ Could not render PDF — try a PNG/JPG export of the page');
+    // Reset drop zone
+    dz.innerHTML = '<span class="big-icon">🗺</span><span>Drop sketch here or click to browse</span><span style="font-size:10px;color:var(--muted)">PNG, JPG, or PDF (scanned floor plan)</span>';
+  }
 }
 
 function dismissOverlay() {
@@ -1543,25 +1762,165 @@ function dismissOverlay() {
 }
 
 // ═══════════════════════════════════════════════════
-//  EXPORT
+//  EXPORT MODAL
 // ═══════════════════════════════════════════════════
-function exportPNG() {
+function showExportModal() {
+  document.getElementById('export-modal').classList.add('show');
+}
+function hideExportModal() {
+  document.getElementById('export-modal').classList.remove('show');
+}
+document.getElementById('export-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) hideExportModal();
+});
+
+// ── Shared render helper ──────────────────────────
+function buildExportCanvas({ includeSketch, includeGrid, whiteBg, addStamp }) {
   const exp = document.createElement('canvas');
   exp.width = W; exp.height = H;
   const ctx = exp.getContext('2d');
-  ctx.fillStyle = '#0a0d14';
+
+  // Background
+  ctx.fillStyle = whiteBg ? '#ffffff' : '#0a0d14';
   ctx.fillRect(0, 0, W, H);
-  [bgC, gridC, drawC].forEach(c => ctx.drawImage(c, 0, 0));
-  // Watermark
-  ctx.fillStyle = 'rgba(59,130,246,0.4)';
-  ctx.font = '11px Share Tech Mono';
-  ctx.fillText('HPU OARS · Floor Plan Editor', 10, H - 10);
+
+  // Sketch underlay
+  if (includeSketch && sketchImage && layers.sketch) {
+    ctx.save();
+    ctx.globalAlpha = sketchOpacity;
+    ctx.translate(pan.x, pan.y);
+    ctx.scale(zoom, zoom);
+    ctx.drawImage(sketchImage, 0, 0);
+    ctx.restore();
+  }
+
+  // Grid
+  if (includeGrid) ctx.drawImage(gridC, 0, 0);
+
+  // Elements
+  ctx.drawImage(drawC, 0, 0);
+
+  // Stamp
+  if (addStamp) {
+    const fname = document.getElementById('ex-filename').value || 'OARS Floor Plan';
+    const dateStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    ctx.fillStyle = whiteBg ? 'rgba(30,58,95,0.7)' : 'rgba(59,130,246,0.5)';
+    ctx.fillRect(0, H-24, W, 24);
+    ctx.fillStyle = whiteBg ? '#1e3a5f' : '#93c5fd';
+    ctx.font = '11px monospace';
+    ctx.fillText(`HPU OARS · ${fname} · ${dateStr}`, 10, H - 8);
+    // Element count
+    ctx.textAlign = 'right';
+    ctx.fillText(`${elements.length} elements`, W - 10, H - 8);
+    ctx.textAlign = 'left';
+  }
+  return exp;
+}
+
+function getExportSettings() {
+  return {
+    includeSketch: document.getElementById('ex-sketch').checked,
+    includeGrid:   document.getElementById('ex-grid').checked,
+    whiteBg:       document.getElementById('ex-white').checked,
+    addStamp:      document.getElementById('ex-stamp').checked,
+    filename:      document.getElementById('ex-filename').value || 'OARS-FloorPlan'
+  };
+}
+
+// ── PNG (with current settings) ──────────────────
+function exportPNG() {
+  const s = getExportSettings();
+  const exp = buildExportCanvas(s);
   const a = document.createElement('a');
-  a.download = 'oars-floor-plan.png';
+  a.download = s.filename + '.png';
   a.href = exp.toDataURL('image/png');
   a.click();
-  showToast('Exported as PNG');
+  hideExportModal();
+  showToast('PNG exported ✓');
 }
+
+// ── PNG clean (no sketch, white bg forced) ────────
+function exportPNGClean() {
+  const s = getExportSettings();
+  const exp = buildExportCanvas({ ...s, includeSketch: false, whiteBg: true });
+  const a = document.createElement('a');
+  a.download = s.filename + '-clean.png';
+  a.href = exp.toDataURL('image/png');
+  a.click();
+  hideExportModal();
+  showToast('Clean PNG exported ✓');
+}
+
+// ── Print / PDF ───────────────────────────────────
+function exportPrint() {
+  const s = getExportSettings();
+  const exp = buildExportCanvas({ ...s, whiteBg: true });
+  const dataURL = exp.toDataURL('image/png');
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <title>${s.filename}</title>
+    <style>
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; }
+      img { max-width:100%; max-height:100vh; object-fit:contain; }
+      h1 { font-family:monospace; font-size:13px; color:#1e3a5f; padding:10px; letter-spacing:2px; text-transform:uppercase; }
+      @media print { h1 { display:none; } }
+    </style>
+  </head><body>
+    <h1>HPU OARS · ${s.filename} — <button onclick="window.print()" style="cursor:pointer;font-family:monospace;font-size:12px;padding:4px 12px;border:1px solid #1e3a5f;border-radius:4px;background:#fff;color:#1e3a5f">🖨 Print / Save PDF</button></h1>
+    <img src="${dataURL}" alt="Floor Plan">
+  </body></html>`);
+  win.document.close();
+  hideExportModal();
+  showToast('Print window opened ✓');
+}
+
+// ── JSON Save ─────────────────────────────────────
+function exportJSON() {
+  const s = getExportSettings();
+  const data = {
+    version: 1,
+    created: new Date().toISOString(),
+    title: s.filename,
+    pan, zoom,
+    elements: JSON.parse(JSON.stringify(elements))
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.download = s.filename + '.json';
+  a.href = URL.createObjectURL(blob);
+  a.click();
+  hideExportModal();
+  showToast('Project saved as JSON ✓');
+}
+
+// ── JSON Load ─────────────────────────────────────
+function importJSON() {
+  document.getElementById('json-input').click();
+}
+document.getElementById('json-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.version !== 1 || !Array.isArray(data.elements)) throw new Error('Invalid');
+      pushHistory();
+      elements = data.elements;
+      if (data.pan) pan = data.pan;
+      if (data.zoom) zoom = data.zoom;
+      selected = null;
+      renderAll(); updateStatusBar(); updatePropsPanel();
+      hideExportModal();
+      showToast(`Project "${data.title || 'untitled'}" loaded ✓`);
+    } catch {
+      showToast('⚠ Could not load — invalid project file');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
 
 // ═══════════════════════════════════════════════════
 //  CLEAR
