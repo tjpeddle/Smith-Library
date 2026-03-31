@@ -505,8 +505,10 @@
   <div class="hpu-badge">HPU</div>
   <h1>OARS · Floor Plan Editor</h1>
   <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-    <button class="tbtn" onclick="importImage()" title="Load sketch image">📂 Load Image</button>
+    <button class="tbtn" onclick="importJSON_direct()" title="Load a saved project JSON file">📂 Load Project</button>
     <button class="tbtn" onclick="showExportModal()" title="Export options" style="color:#10b981;border-color:#10b981;background:rgba(16,185,129,0.1)">💾 Export ▾</button>
+    <button class="tbtn" onclick="copySelected()" title="Copy selected (Ctrl+C)" id="btn-copy">⧉ Copy</button>
+    <button class="tbtn" onclick="pasteElement()" title="Paste (Ctrl+V)" id="btn-paste">⎘ Paste</button>
     <button class="tbtn" onclick="undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
     <button class="tbtn" onclick="redo()" title="Redo (Ctrl+Y)">↪ Redo</button>
     <button class="tbtn" onclick="clearAll()" style="color:#f87171" title="Clear drawing">🗑 Clear</button>
@@ -589,11 +591,11 @@
   </div>
 
   <div class="tool-group">
-    <span class="tool-label">Snap</span>
+    <span class="tool-label">Grid Align</span>
     <input type="range" id="snap-size" min="5" max="50" value="20" oninput="snapSize=+this.value;document.getElementById('snap-val').textContent=this.value">
     <span id="snap-val" style="font-size:11px;color:var(--muted)">20</span>px
-    <button class="tbtn" id="t-snap" onclick="toggleSnap()" title="Toggle snap to grid">
-      <span class="icon" id="snap-icon">🔲</span>Snap
+    <button class="tbtn" id="t-snap" onclick="toggleSnap()" title="Grid Align: elements stick to a grid when you draw or move them — makes everything line up neatly">
+      <span class="icon" id="snap-icon">🔲</span>Align
     </button>
   </div>
 </div>
@@ -654,6 +656,8 @@
         <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="setTool('cubicle')">⬜ Room Box</button>
         <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="placeADA()">♿ ADA Station</button>
         <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="placeOffice()">🏢 Office Set</button>
+        <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="placeStairs()">🪜 Stairs</button>
+        <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="placeElevator()">🛗 Elevator</button>
       </div>
     </div>
 
@@ -741,7 +745,9 @@
 
 <!-- CONTEXT MENU -->
 <div id="ctx-menu">
-  <div class="ctx-item" onclick="ctxDuplicate()">⧉ Duplicate</div>
+  <div class="ctx-item" onclick="copySelected();hideContextMenu()">⧉ Copy</div>
+  <div class="ctx-item" onclick="pasteElement();hideContextMenu()">⎘ Paste</div>
+  <div class="ctx-item" onclick="ctxDuplicate()">⧉ Duplicate Here</div>
   <div class="ctx-item" onclick="ctxEditLabel()">✏ Edit Label</div>
   <div class="ctx-item" onclick="ctxRotate()">↻ Rotate 90°</div>
   <div class="ctx-sep"></div>
@@ -1012,6 +1018,10 @@ function drawElement(ctx, el, sel, hov) {
       drawTable(ctx, el, hlColor); break;
     case 'cubicle':
       drawCubicle(ctx, el, hlColor); break;
+    case 'stairs':
+      drawStairs(ctx, el, hlColor); break;
+    case 'elevator':
+      drawElevator(ctx, el, hlColor); break;
     case 'label':
       drawLabel(ctx, el, hlColor); break;
   }
@@ -1160,7 +1170,7 @@ function drawCubicle(ctx, el, hl) {
   if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
   ctx.fillRect(el.x, el.y, w, h);
   ctx.strokeRect(el.x, el.y, w, h);
-  // Corner tick marks
+  // Corner ticks
   const t = 10;
   ctx.lineWidth = 3;
   [[0,0],[w,0],[0,h],[w,h]].forEach(([cx,cy]) => {
@@ -1171,16 +1181,109 @@ function drawCubicle(ctx, el, hl) {
     ctx.stroke();
   });
   if (el.label) {
+    const fs = el.labelSize || 11;
+    const angle = (el.labelAngle || 0) * Math.PI / 180;
+    const cx = el.x + w/2, cy = el.y + h/2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
     ctx.fillStyle = col;
-    ctx.font = 'bold 11px Barlow';
+    ctx.font = `bold ${fs}px Barlow`;
     ctx.textAlign = 'center';
-    ctx.fillText(el.label, el.x + w/2, el.y + 16);
+    ctx.textBaseline = 'middle';
+    // Word-wrap only when horizontal
+    if (!angle) {
+      const words = el.label.split(/[\n ]/);
+      let line = '', lines = [], maxW = w - 8;
+      for (const word of words) {
+        const test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = word; }
+        else line = test;
+      }
+      lines.push(line);
+      const lineH = fs + 2;
+      const startY = -(lines.length - 1) * lineH / 2;
+      lines.forEach((l, i) => ctx.fillText(l, 0, startY + i * lineH));
+    } else {
+      // Vertical — clip to box height, single line
+      const maxLen = angle ? h - 8 : w - 8;
+      ctx.fillText(el.label, 0, 0, maxLen);
+    }
+    ctx.textBaseline = 'alphabetic';
+    ctx.restore();
   }
+  ctx.shadowBlur = 0;
+}
+
+function drawStairs(ctx, el, hl) {
+  const w = el.w || 100, h = el.h || 120;
+  const col = hl || el.color || '#64748b';
+  ctx.strokeStyle = col;
+  ctx.fillStyle = col + '15';
+  ctx.lineWidth = 2;
+  if (hl) { ctx.shadowBlur = 6; ctx.shadowColor = col; }
+  ctx.fillRect(el.x, el.y, w, h);
+  ctx.strokeRect(el.x, el.y, w, h);
+  // Stair treads — horizontal lines across width
+  const steps = 8;
+  const stepH = h / steps;
+  ctx.lineWidth = 1;
+  for (let i = 1; i < steps; i++) {
+    ctx.beginPath();
+    ctx.moveTo(el.x, el.y + i * stepH);
+    ctx.lineTo(el.x + w, el.y + i * stepH);
+    ctx.stroke();
+  }
+  // Arrow showing direction
+  ctx.lineWidth = 2;
+  const mx = el.x + w/2, ay = el.y + h - 12;
+  ctx.beginPath(); ctx.moveTo(mx, el.y + 10); ctx.lineTo(mx, ay); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(mx-6, ay-8); ctx.lineTo(mx, ay); ctx.lineTo(mx+6, ay-8); ctx.stroke();
+  // Label
+  ctx.fillStyle = col;
+  ctx.font = 'bold 10px Barlow';
+  ctx.textAlign = 'center';
+  ctx.fillText(el.label || 'STAIRS', el.x + w/2, el.y + h/2 + 4);
+  ctx.shadowBlur = 0;
+}
+
+function drawElevator(ctx, el, hl) {
+  const w = el.w || 80, h = el.h || 80;
+  const col = hl || el.color || '#0891b2';
+  ctx.strokeStyle = col;
+  ctx.fillStyle = col + '15';
+  ctx.lineWidth = 2;
+  if (hl) { ctx.shadowBlur = 6; ctx.shadowColor = col; }
+  ctx.fillRect(el.x, el.y, w, h);
+  ctx.strokeRect(el.x, el.y, w, h);
+  // Inner elevator car box
+  const pad = 8;
+  ctx.strokeStyle = col + 'aa';
+  ctx.strokeRect(el.x+pad, el.y+pad, w-pad*2, h-pad*2);
+  // Up/down arrows
+  const mx = el.x + w/2, cy = el.y + h/2;
+  ctx.fillStyle = col;
+  ctx.lineWidth = 1.5;
+  // Up arrow
+  ctx.beginPath(); ctx.moveTo(mx-8,cy-2); ctx.lineTo(mx,cy-12); ctx.lineTo(mx+8,cy-2); ctx.closePath(); ctx.fill();
+  // Down arrow
+  ctx.beginPath(); ctx.moveTo(mx-8,cy+2); ctx.lineTo(mx,cy+12); ctx.lineTo(mx+8,cy+2); ctx.closePath(); ctx.fill();
+  // Label
+  ctx.font = 'bold 9px Barlow';
+  ctx.textAlign = 'center';
+  ctx.fillText(el.label || 'ELEV', el.x + w/2, el.y + h - 6);
   ctx.shadowBlur = 0;
 }
 
 function drawLabel(ctx, el, hl) {
   const col = hl || el.color || '#e2e8f0';
+  const angle = (el.rotation || 0) * Math.PI / 180;
+  ctx.save();
+  if (angle) {
+    ctx.translate(el.x, el.y);
+    ctx.rotate(angle);
+    ctx.translate(-el.x, -el.y);
+  }
   ctx.fillStyle = col;
   ctx.font = `${el.bold ? 'bold ' : ''}${el.fontSize || 13}px Barlow`;
   ctx.textAlign = 'left';
@@ -1189,6 +1292,7 @@ function drawLabel(ctx, el, hl) {
   ctx.fillText(el.text || 'Label', el.x, el.y);
   ctx.shadowBlur = 0;
   ctx.textBaseline = 'alphabetic';
+  ctx.restore();
 }
 
 function drawSelectionHandles(ctx, el) {
@@ -1300,7 +1404,7 @@ function resizeElement(el, handle, nx, ny) {
 
 // ── Snap door to nearest wall ─────────────────────
 function snapDoorToWall(door) {
-  const SNAP_DIST = 20;
+  const SNAP_DIST = 30;
   const dcx = door.x + (door.w||30)/2;
   const dcy = door.y + (door.h||6)/2;
   let best = null, bestDist = SNAP_DIST;
@@ -1309,19 +1413,63 @@ function snapDoorToWall(door) {
     const d = distToSegment(dcx, dcy, el.x1, el.y1, el.x2, el.y2);
     if (d < bestDist) { bestDist = d; best = el; }
   }
+  // Also check cubicle edges as walls
+  for (const el of elements) {
+    if (el.type !== 'cubicle') continue;
+    const edges = [
+      [el.x, el.y, el.x+el.w, el.y],
+      [el.x+el.w, el.y, el.x+el.w, el.y+el.h],
+      [el.x, el.y+el.h, el.x+el.w, el.y+el.h],
+      [el.x, el.y, el.x, el.y+el.h]
+    ];
+    for (const [ax,ay,bx,by] of edges) {
+      const d = distToSegment(dcx, dcy, ax, ay, bx, by);
+      if (d < bestDist) { bestDist = d; best = { x1:ax,y1:ay,x2:bx,y2:by }; }
+    }
+  }
   if (!best) return;
-  // Project door center onto wall line
   const dx = best.x2 - best.x1, dy = best.y2 - best.y1;
   const len2 = dx*dx + dy*dy;
   if (!len2) return;
   const t = ((dcx-best.x1)*dx + (dcy-best.y1)*dy) / len2;
   const tc = Math.max(0, Math.min(1, t));
   const px = best.x1 + tc*dx, py = best.y1 + tc*dy;
-  // Place door centered on wall, offset perpendicular
   const angle = Math.atan2(dy, dx);
   door.rotation = Math.round(angle * 180 / Math.PI);
   door.x = px - (door.w||30)/2;
   door.y = py - (door.h||6)/2;
+}
+
+// ── Snap furniture/window to inside nearest room ──
+function snapToRoom(el) {
+  const SNAP_DIST = 40;
+  const ecx = el.x + (el.w||60)/2;
+  const ecy = el.y + (el.h||40)/2;
+  let bestRoom = null, bestDist = Infinity;
+
+  for (const room of elements) {
+    if (room.type !== 'cubicle' || room === el) continue;
+    // Distance from element center to room center
+    const rcx = room.x + room.w/2, rcy = room.y + room.h/2;
+    const d = Math.hypot(ecx - rcx, ecy - rcy);
+    if (d < bestDist) { bestDist = d; bestRoom = room; }
+  }
+
+  if (!bestRoom) return;
+
+  // Only snap if the element is close enough to or overlapping the room
+  const inOrNear = ecx > bestRoom.x - SNAP_DIST &&
+                   ecx < bestRoom.x + bestRoom.w + SNAP_DIST &&
+                   ecy > bestRoom.y - SNAP_DIST &&
+                   ecy < bestRoom.y + bestRoom.h + SNAP_DIST;
+  if (!inOrNear) return;
+
+  // Clamp element fully inside the room with a small padding
+  const pad = 4;
+  const maxX = bestRoom.x + bestRoom.w - (el.w||60) - pad;
+  const maxY = bestRoom.y + bestRoom.h - (el.h||40) - pad;
+  el.x = Math.max(bestRoom.x + pad, Math.min(maxX, el.x));
+  el.y = Math.max(bestRoom.y + pad, Math.min(maxY, el.y));
 }
 
 // ── Resize cursor by handle ───────────────────────
@@ -1453,8 +1601,10 @@ wrap.addEventListener('mousemove', (e) => {
       const ny = snp.y - dragOffset.y;
       moveElement(dragEl, snap(nx), snap(ny));
 
-      // Snap door to nearest wall midpoint
-      if (dragEl.type === 'door') snapDoorToWall(dragEl);
+      // Snap door/window to nearest wall or room edge
+      if (dragEl.type === 'door' || dragEl.type === 'window') snapDoorToWall(dragEl);
+      // Snap furniture inside nearest room
+      if (['desk','chair','table'].includes(dragEl.type)) snapToRoom(dragEl);
     }
     renderDraw();
     updatePropsPanel();
@@ -1636,21 +1786,36 @@ function finishDraw(s, e2) {
     case 'wall':
       elements.push({ type:'wall', layer:'walls', x1:s.x, y1:s.y, x2:e2.x, y2:e2.y, thickness:wallThickness, color:col });
       break;
-    case 'door':
-      elements.push({ type:'door', layer:'doors', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||30, h:Math.abs(dy)||6, color:col, label:'', rotation:0 });
+    case 'door': {
+      const el = { type:'door', layer:'doors', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||30, h:Math.abs(dy)||6, color:col, label:'', rotation:0 };
+      elements.push(el);
+      snapDoorToWall(el);
       break;
-    case 'window':
-      elements.push({ type:'window', layer:'windows', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||50, h:Math.abs(dy)||8, color:col });
+    }
+    case 'window': {
+      const el = { type:'window', layer:'windows', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||50, h:Math.abs(dy)||8, color:col };
+      elements.push(el);
+      snapDoorToWall(el);
       break;
-    case 'desk':
-      elements.push({ type:'desk', layer:'furniture', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||60, h:Math.abs(dy)||40, color:col, label:'TESTING' });
+    }
+    case 'desk': {
+      const el = { type:'desk', layer:'furniture', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||60, h:Math.abs(dy)||40, color:col, label:'TESTING' };
+      elements.push(el);
+      snapToRoom(el);
       break;
-    case 'chair':
-      elements.push({ type:'chair', layer:'furniture', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||20, color:col });
+    }
+    case 'chair': {
+      const el = { type:'chair', layer:'furniture', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||20, color:col };
+      elements.push(el);
+      snapToRoom(el);
       break;
-    case 'table':
-      elements.push({ type:'table', layer:'furniture', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||80, h:Math.abs(dy)||40, color:col, label:'TABLE' });
+    }
+    case 'table': {
+      const el = { type:'table', layer:'furniture', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||80, h:Math.abs(dy)||40, color:col, label:'TABLE' };
+      elements.push(el);
+      snapToRoom(el);
       break;
+    }
     case 'cubicle':
       elements.push({ type:'cubicle', layer:'walls', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||100, h:Math.abs(dy)||80, color:col, label:'' });
       break;
@@ -1804,7 +1969,15 @@ function updatePropsPanel() {
   }
 
   if (el.rotation !== undefined || el.type !== 'wall') {
-    html += `<div class="prop-row"><label>Rotate°</label><input type="number" value="${el.rotation||0}" onchange="selProp('rotation',+this.value)"></div>`;
+    html += `<div class="prop-row"><label>Rotate°</label>
+      <div style="display:flex;gap:4px;align-items:center;">
+        <input type="number" value="${el.rotation||0}" onchange="selProp('rotation',+this.value)" style="width:48px">
+        <button onclick="selProp('rotation',0)"   style="font-size:10px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer">—</button>
+        <button onclick="selProp('rotation',-90)" style="font-size:10px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer">↑</button>
+        <button onclick="selProp('rotation',90)"  style="font-size:10px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer">↓</button>
+        <button onclick="selProp('rotation',180)" style="font-size:10px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer">↕</button>
+      </div>
+    </div>`;
   }
 
   // Label/text
@@ -1817,6 +1990,18 @@ function updatePropsPanel() {
   }
   if (el.fontSize !== undefined) {
     html += `<div class="prop-row"><label>Font size</label><input type="number" value="${el.fontSize||13}" onchange="selProp('fontSize',+this.value)"></div>`;
+  }
+  // Room label font size (cubicle, stairs, elevator)
+  if (['cubicle','stairs','elevator'].includes(el.type)) {
+    html += `<div class="prop-row"><label>Label size</label><input type="number" value="${el.labelSize||11}" onchange="selProp('labelSize',+this.value)"></div>`;
+    html += `<div class="prop-row"><label>Label angle</label>
+      <div style="display:flex;gap:4px;align-items:center;">
+        <input type="number" value="${el.labelAngle||0}" onchange="selProp('labelAngle',+this.value)" style="width:48px">
+        <button onclick="selProp('labelAngle',0)"   style="font-size:10px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer" title="Horizontal">—</button>
+        <button onclick="selProp('labelAngle',-90)" style="font-size:10px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer" title="Vertical up">↑</button>
+        <button onclick="selProp('labelAngle',90)"  style="font-size:10px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer" title="Vertical down">↓</button>
+      </div>
+    </div>`;
   }
 
   // Color swatches
@@ -1920,11 +2105,105 @@ function placeOffice() {
   pushHistory();
   const x = snap((-pan.x/zoom) + W/(zoom*2) - 60);
   const y = snap((-pan.y/zoom) + H/(zoom*2) - 60);
-  elements.push({ type:'cubicle', layer:'walls', x, y, w:120, h:100, color:'#3b82f6', label:'OFFICE' });
+  elements.push({ type:'cubicle', layer:'walls', x, y, w:120, h:100, color:'#3b82f6', label:'OFFICE', labelSize:11 });
   elements.push({ type:'desk', layer:'furniture', x:x+15, y:y+20, w:80, h:50, color:'#7c3aed', label:'DESK' });
   elements.push({ type:'chair', layer:'furniture', x:x+40, y:y+75, w:24, color:'#db2777' });
   renderDraw(); updateStatusBar();
   showToast('Office set placed');
+}
+
+function placeStairs() {
+  pushHistory();
+  const x = snap((-pan.x/zoom) + W/(zoom*2) - 50);
+  const y = snap((-pan.y/zoom) + H/(zoom*2) - 60);
+  elements.push({ type:'stairs', layer:'walls', x, y, w:100, h:120, color:'#64748b', label:'STAIRS', rotation:0 });
+  selected = elements[elements.length-1];
+  renderDraw(); updateStatusBar(); updatePropsPanel();
+  showToast('Stairs placed — select to resize/move');
+}
+
+function placeElevator() {
+  pushHistory();
+  const x = snap((-pan.x/zoom) + W/(zoom*2) - 40);
+  const y = snap((-pan.y/zoom) + H/(zoom*2) - 40);
+  elements.push({ type:'elevator', layer:'walls', x, y, w:80, h:80, color:'#0891b2', label:'ELEVATOR', rotation:0 });
+  selected = elements[elements.length-1];
+  renderDraw(); updateStatusBar(); updatePropsPanel();
+  showToast('Elevator placed');
+}
+
+// ═══════════════════════════════════════════════════
+//  COPY / PASTE
+// ═══════════════════════════════════════════════════
+let clipboard = null;
+let pasteOffset = 0;
+
+function copySelected() {
+  if (!selected) { showToast('Select something first'); return; }
+  clipboard = JSON.parse(JSON.stringify(selected));
+  pasteOffset = 0;
+  showToast('Copied — click Paste to place a copy');
+}
+
+function pasteElement() {
+  if (!clipboard) { showToast('Nothing copied yet'); return; }
+  pushHistory();
+  pasteOffset += 20;
+  const clone = JSON.parse(JSON.stringify(clipboard));
+  // Offset so it doesn't land exactly on top
+  if (clone.type === 'wall') {
+    clone.x1 += pasteOffset; clone.y1 += pasteOffset;
+    clone.x2 += pasteOffset; clone.y2 += pasteOffset;
+  } else {
+    clone.x = (clone.x || 0) + pasteOffset;
+    clone.y = (clone.y || 0) + pasteOffset;
+  }
+  elements.push(clone);
+  selected = clone;
+  renderDraw(); updateStatusBar(); updatePropsPanel();
+  showToast('Pasted — drag to position');
+}
+
+// keyboard shortcuts for copy/paste
+document.addEventListener('keydown', (ev) => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key === 'c' && !ev.target.matches('input,textarea')) {
+    copySelected(); ev.preventDefault();
+  }
+  if ((ev.ctrlKey || ev.metaKey) && ev.key === 'v' && !ev.target.matches('input,textarea')) {
+    pasteElement(); ev.preventDefault();
+  }
+});
+
+// ═══════════════════════════════════════════════════
+//  DIRECT JSON LOAD (replaces importImage in header)
+// ═══════════════════════════════════════════════════
+function importJSON_direct() {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.json,application/json';
+  inp.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.version !== 1 || !Array.isArray(data.elements)) throw new Error('Invalid project file');
+        pushHistory();
+        elements = data.elements;
+        if (data.pan) pan = data.pan;
+        if (data.zoom) zoom = data.zoom;
+        selected = null;
+        dismissOverlay();
+        renderAll(); updateStatusBar(); updatePropsPanel();
+        showToast(`✅ Loaded "${data.title || file.name}" — ${elements.length} elements`);
+      } catch(err) {
+        showToast('⚠ Could not load: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  inp.click();
 }
 
 // ═══════════════════════════════════════════════════
