@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OARS Floor Plan Editor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --panel: #181c27;
+    --panel2: #1e2333;
+    --border: #2a3048;
+    --accent: #3b82f6;
+    --accent2: #10b981;
+    --accent3: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --grid: rgba(59,130,246,0.07);
+    --wall: #1e3a5f;
+    --wall-stroke: #3b82f6;
+    --door: #10b981;
+    --window: #f59e0b;
+    --desk: #7c3aed;
+    --chair: #db2777;
+    --label: #e2e8f0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 18px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  header h1 {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .hpu-badge {
+    font-size: 10px;
+    background: var(--accent);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  /* ── TOOLBAR ── */
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 14px;
+    background: var(--panel2);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .tool-group {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    padding-right: 10px;
+    margin-right: 6px;
+    border-right: 1px solid var(--border);
+  }
+  .tool-group:last-child { border-right: none; }
+  .tool-label {
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-right: 4px;
+    font-weight: 600;
+  }
+  .tbtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 10px;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    min-width: 44px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tbtn:hover { background: rgba(59,130,246,0.1); color: var(--text); border-color: var(--border); }
+  .tbtn.active { background: rgba(59,130,246,0.2); color: var(--accent); border-color: var(--accent); }
+  .tbtn .icon { font-size: 16px; line-height: 1; }
+  .tbtn.wall.active { background: rgba(59,130,246,0.2); color: #60a5fa; border-color: #3b82f6; }
+  .tbtn.door.active { background: rgba(16,185,129,0.2); color: #34d399; border-color: #10b981; }
+  .tbtn.window.active { background: rgba(245,158,11,0.2); color: #fbbf24; border-color: #f59e0b; }
+  .tbtn.desk.active { background: rgba(124,58,237,0.2); color: #a78bfa; border-color: #7c3aed; }
+  .tbtn.chair.active { background: rgba(219,39,119,0.2); color: #f472b6; border-color: #db2777; }
+  .tbtn.label.active { background: rgba(226,232,240,0.1); color: #e2e8f0; border-color: #94a3b8; }
+  .tbtn.eraser.active { background: rgba(239,68,68,0.2); color: #f87171; border-color: #ef4444; }
+  .tbtn.select.active { background: rgba(99,102,241,0.2); color: #818cf8; border-color: #6366f1; }
+
+  .color-swatch {
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    border: 2px solid var(--border);
+    cursor: pointer;
+  }
+  .color-swatch:hover { border-color: var(--text); }
+
+  input[type=range] {
+    width: 70px; accent-color: var(--accent);
+  }
+  input[type=color] {
+    width: 28px; height: 28px;
+    border: none; border-radius: 4px;
+    background: none; cursor: pointer;
+    padding: 0;
+  }
+
+  /* ── MAIN AREA ── */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── SIDE PANEL ── */
+  #sidepanel {
+    width: 200px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .sp-section { padding: 12px; border-bottom: 1px solid var(--border); }
+  .sp-title {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .layer-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.1s;
+  }
+  .layer-item:hover { background: var(--panel2); }
+  .layer-item.selected { background: rgba(59,130,246,0.15); color: var(--accent); }
+  .layer-dot {
+    width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;
+  }
+  .layer-eye {
+    margin-left: auto;
+    font-size: 13px;
+    opacity: 0.5;
+    cursor: pointer;
+  }
+  .layer-eye:hover { opacity: 1; }
+
+  .prop-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+  .prop-row label { color: var(--muted); }
+  .prop-row input[type=number] {
+    width: 60px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 3px;
+    padding: 2px 5px;
+    font-size: 11px;
+  }
+  .prop-row input[type=text] {
+    width: 100%;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 3px;
+    padding: 2px 5px;
+    font-size: 11px;
+  }
+  .prop-row select {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 3px;
+    padding: 2px 4px;
+    font-size: 11px;
+  }
+  .del-btn {
+    width: 100%;
+    margin-top: 6px;
+    padding: 5px;
+    background: rgba(239,68,68,0.15);
+    border: 1px solid #ef4444;
+    color: #f87171;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+  }
+  .del-btn:hover { background: rgba(239,68,68,0.3); }
+
+  /* ── CANVAS AREA ── */
+  #canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    cursor: crosshair;
+    background: #0a0d14;
+  }
+  #canvas-wrap.select-mode { cursor: default; }
+  #canvas-wrap.pan-mode { cursor: grab; }
+  #canvas-wrap.pan-mode.panning { cursor: grabbing; }
+
+  #bg-canvas, #grid-canvas, #draw-canvas, #overlay-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+  }
+  #draw-canvas { pointer-events: none; }
+  #overlay-canvas { pointer-events: none; z-index: 10; }
+
+  /* ── STATUS BAR ── */
+  #statusbar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 4px 14px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  #statusbar span { color: var(--text); }
+
+  /* ── LOAD OVERLAY ── */
+  #load-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10,13,20,0.92);
+    z-index: 200;
+    gap: 16px;
+  }
+  #load-overlay h2 {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 20px;
+    color: var(--accent);
+    letter-spacing: 3px;
+  }
+  #load-overlay p { color: var(--muted); font-size: 13px; text-align: center; max-width: 320px; line-height: 1.6; }
+  .load-drop {
+    width: 280px; height: 160px;
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .load-drop:hover, .load-drop.drag-over {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(59,130,246,0.07);
+  }
+  .load-drop .big-icon { font-size: 36px; }
+  .load-skip {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 7px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'Barlow', sans-serif;
+    transition: all 0.15s;
+  }
+  .load-skip:hover { border-color: var(--text); color: var(--text); }
+
+  /* Snap guide */
+  .snap-indicator {
+    position: absolute;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  /* Context menu */
+  #ctx-menu {
+    position: fixed;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    z-index: 999;
+    min-width: 140px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    display: none;
+  }
+  #ctx-menu.show { display: block; }
+  .ctx-item {
+    padding: 7px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.1s;
+  }
+  .ctx-item:hover { background: rgba(59,130,246,0.15); color: var(--accent); }
+  .ctx-item.danger:hover { background: rgba(239,68,68,0.15); color: #f87171; }
+  .ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: 12px;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 9999;
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="hpu-badge">HPU</div>
+  <h1>OARS · Floor Plan Editor</h1>
+  <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+    <button class="tbtn" onclick="importImage()" title="Load sketch image">📂 Load Image</button>
+    <button class="tbtn" onclick="exportPNG()" title="Export as PNG">💾 Export PNG</button>
+    <button class="tbtn" onclick="undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
+    <button class="tbtn" onclick="redo()" title="Redo (Ctrl+Y)">↪ Redo</button>
+    <button class="tbtn" onclick="clearAll()" style="color:#f87171" title="Clear drawing">🗑 Clear</button>
+  </div>
+</header>
+
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <div class="tool-group">
+    <span class="tool-label">Mode</span>
+    <button class="tbtn select" id="t-select" onclick="setTool('select')" title="Select / Move (V)">
+      <span class="icon">↖</span>Select
+    </button>
+    <button class="tbtn" id="t-pan" onclick="setTool('pan')" title="Pan (Space/H)">
+      <span class="icon">✋</span>Pan
+    </button>
+  </div>
+
+  <div class="tool-group">
+    <span class="tool-label">Draw</span>
+    <button class="tbtn wall" id="t-wall" onclick="setTool('wall')" title="Draw Wall (W)">
+      <span class="icon">▬</span>Wall
+    </button>
+    <button class="tbtn door" id="t-door" onclick="setTool('door')" title="Place Door (D)">
+      <span class="icon">🚪</span>Door
+    </button>
+    <button class="tbtn window" id="t-window" onclick="setTool('window')" title="Place Window (N)">
+      <span class="icon">⬜</span>Window
+    </button>
+  </div>
+
+  <div class="tool-group">
+    <span class="tool-label">Furniture</span>
+    <button class="tbtn desk" id="t-desk" onclick="setTool('desk')" title="Place Desk">
+      <span class="icon">🖥</span>Desk
+    </button>
+    <button class="tbtn chair" id="t-chair" onclick="setTool('chair')" title="Place Chair">
+      <span class="icon">🪑</span>Chair
+    </button>
+    <button class="tbtn" id="t-table" onclick="setTool('table')" title="Place Table">
+      <span class="icon">⬛</span>Table
+    </button>
+    <button class="tbtn" id="t-cubicle" onclick="setTool('cubicle')" title="Draw Room / Cubicle">
+      <span class="icon">⬜</span>Room
+    </button>
+  </div>
+
+  <div class="tool-group">
+    <span class="tool-label">Annotate</span>
+    <button class="tbtn label" id="t-label" onclick="setTool('label')" title="Add Text Label (T)">
+      <span class="icon">T</span>Label
+    </button>
+    <button class="tbtn eraser" id="t-eraser" onclick="setTool('eraser')" title="Eraser (E)">
+      <span class="icon">⌫</span>Eraser
+    </button>
+  </div>
+
+  <div class="tool-group">
+    <span class="tool-label">Wall px</span>
+    <input type="range" id="wall-thick" min="2" max="24" value="6" oninput="wallThickness=+this.value;document.getElementById('wt-val').textContent=this.value">
+    <span id="wt-val" style="font-size:11px;color:var(--muted);min-width:16px">6</span>
+  </div>
+
+  <div class="tool-group">
+    <span class="tool-label">Color</span>
+    <input type="color" id="color-pick" value="#3b82f6" oninput="customColor=this.value" title="Custom color">
+  </div>
+
+  <div class="tool-group">
+    <span class="tool-label">Sketch</span>
+    <input type="range" id="sketch-opacity" min="0" max="100" value="40" oninput="setSketchOpacity(+this.value)">
+    <span style="font-size:10px;color:var(--muted)" id="so-label">40%</span>
+  </div>
+
+  <div class="tool-group">
+    <span class="tool-label">Snap</span>
+    <input type="range" id="snap-size" min="5" max="50" value="20" oninput="snapSize=+this.value;document.getElementById('snap-val').textContent=this.value">
+    <span id="snap-val" style="font-size:11px;color:var(--muted)">20</span>px
+    <button class="tbtn" id="t-snap" onclick="toggleSnap()" title="Toggle snap to grid">
+      <span class="icon" id="snap-icon">🔲</span>Snap
+    </button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- SIDE PANEL -->
+  <div id="sidepanel">
+    <div class="sp-section">
+      <div class="sp-title">Layers</div>
+      <div id="layer-list">
+        <div class="layer-item selected" data-layer="sketch">
+          <div class="layer-dot" style="background:#64748b"></div>
+          Sketch Image
+          <span class="layer-eye" onclick="toggleLayer('sketch',event)">👁</span>
+        </div>
+        <div class="layer-item" data-layer="walls">
+          <div class="layer-dot" style="background:#3b82f6"></div>
+          Walls
+          <span class="layer-eye" onclick="toggleLayer('walls',event)">👁</span>
+        </div>
+        <div class="layer-item" data-layer="doors">
+          <div class="layer-dot" style="background:#10b981"></div>
+          Doors
+          <span class="layer-eye" onclick="toggleLayer('doors',event)">👁</span>
+        </div>
+        <div class="layer-item" data-layer="windows">
+          <div class="layer-dot" style="background:#f59e0b"></div>
+          Windows
+          <span class="layer-eye" onclick="toggleLayer('windows',event)">👁</span>
+        </div>
+        <div class="layer-item" data-layer="furniture">
+          <div class="layer-dot" style="background:#7c3aed"></div>
+          Furniture
+          <span class="layer-eye" onclick="toggleLayer('furniture',event)">👁</span>
+        </div>
+        <div class="layer-item" data-layer="labels">
+          <div class="layer-dot" style="background:#e2e8f0"></div>
+          Labels
+          <span class="layer-eye" onclick="toggleLayer('labels',event)">👁</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sp-section" id="props-panel">
+      <div class="sp-title">Properties</div>
+      <div id="props-content" style="color:var(--muted);font-size:11px;">
+        Select an element to edit its properties.
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-title">Quick Place</div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="setTool('desk')">🖥 Testing Desk</button>
+        <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="setTool('chair')">🪑 Chair</button>
+        <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="setTool('cubicle')">⬜ Room Box</button>
+        <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="placeADA()">♿ ADA Station</button>
+        <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="placeOffice()">🏢 Office Set</button>
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-title">View</div>
+      <div class="prop-row">
+        <label>Zoom</label>
+        <span id="zoom-display" style="color:var(--text)">100%</span>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:4px;">
+        <button class="tbtn" style="flex:1" onclick="zoomIn()">+</button>
+        <button class="tbtn" style="flex:1" onclick="zoomReset()">1:1</button>
+        <button class="tbtn" style="flex:1" onclick="zoomOut()">–</button>
+        <button class="tbtn" style="flex:1" onclick="fitToWindow()">Fit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CANVAS -->
+  <div id="canvas-wrap">
+    <canvas id="bg-canvas"></canvas>
+    <canvas id="grid-canvas"></canvas>
+    <canvas id="draw-canvas"></canvas>
+    <canvas id="overlay-canvas"></canvas>
+
+    <!-- Load overlay -->
+    <div id="load-overlay">
+      <h2>FLOOR PLAN EDITOR</h2>
+      <p>Load your sketch image to trace over it, or start drawing a new layout from scratch.</p>
+      <div class="load-drop" id="drop-zone">
+        <span class="big-icon">🗺</span>
+        <span>Drop sketch here or click to browse</span>
+        <span style="font-size:10px;color:var(--muted)">PNG, JPG, or PDF image</span>
+      </div>
+      <input type="file" id="file-input" accept="image/*" style="display:none">
+      <button class="load-skip" onclick="dismissOverlay()">Skip — Start Blank</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+  <span>Tool: <span id="sb-tool">select</span></span>
+  <span>X: <span id="sb-x">0</span> Y: <span id="sb-y">0</span></span>
+  <span>Elements: <span id="sb-count">0</span></span>
+  <span>Zoom: <span id="sb-zoom">100%</span></span>
+  <span style="margin-left:auto">HPU OARS · Testing Center Layout Tool · <span id="sb-date"></span></span>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="ctxDuplicate()">⧉ Duplicate</div>
+  <div class="ctx-item" onclick="ctxEditLabel()">✏ Edit Label</div>
+  <div class="ctx-item" onclick="ctxRotate()">↻ Rotate 90°</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="ctxBringFront()">⬆ Bring to Front</div>
+  <div class="ctx-item" onclick="ctxSendBack()">⬇ Send to Back</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" onclick="ctxDelete()">🗑 Delete</div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+const wrap = document.getElementById('canvas-wrap');
+const bgC = document.getElementById('bg-canvas');
+const gridC = document.getElementById('grid-canvas');
+const drawC = document.getElementById('draw-canvas');
+const ovC = document.getElementById('overlay-canvas');
+const bgCtx = bgC.getContext('2d');
+const gridCtx = gridC.getContext('2d');
+const drawCtx = drawC.getContext('2d');
+const ovCtx = ovC.getContext('2d');
+
+let W = 0, H = 0;
+let pan = { x: 0, y: 0 };
+let zoom = 1;
+let currentTool = 'select';
+let snapOn = true;
+let snapSize = 20;
+let wallThickness = 6;
+let customColor = '#3b82f6';
+let sketchImage = null;
+let sketchOpacity = 0.4;
+let layers = { sketch: true, walls: true, doors: true, windows: true, furniture: true, labels: true };
+
+let elements = []; // all drawn elements
+let history = [];  // undo stack
+let redoStack = [];
+let selected = null;
+let hovering = null;
+
+// Drawing state
+let isDrawing = false;
+let drawStart = { x: 0, y: 0 };
+let drawCurrent = { x: 0, y: 0 };
+let isPanning = false;
+let panStart = { x: 0, y: 0 };
+let panOrigin = { x: 0, y: 0 };
+let spaceDown = false;
+let dragEl = null;
+let dragOffset = { x: 0, y: 0 };
+let dragStartPos = null;
+
+// ═══════════════════════════════════════════════════
+//  CANVAS SETUP
+// ═══════════════════════════════════════════════════
+function resize() {
+  const r = wrap.getBoundingClientRect();
+  W = r.width; H = r.height;
+  [bgC, gridC, drawC, ovC].forEach(c => { c.width = W; c.height = H; });
+  renderAll();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ═══════════════════════════════════════════════════
+//  COORDINATE TRANSFORMS
+// ═══════════════════════════════════════════════════
+function toWorld(sx, sy) {
+  return { x: (sx - pan.x) / zoom, y: (sy - pan.y) / zoom };
+}
+function toScreen(wx, wy) {
+  return { x: wx * zoom + pan.x, y: wy * zoom + pan.y };
+}
+function snap(v) {
+  if (!snapOn) return v;
+  return Math.round(v / snapSize) * snapSize;
+}
+function snapPt(x, y) { return { x: snap(x), y: snap(y) }; }
+
+// ═══════════════════════════════════════════════════
+//  RENDER PIPELINE
+// ═══════════════════════════════════════════════════
+function renderAll() {
+  renderBG();
+  renderGrid();
+  renderDraw();
+  updateStatusBar();
+}
+
+function renderBG() {
+  bgCtx.clearRect(0, 0, W, H);
+  if (sketchImage && layers.sketch) {
+    bgCtx.save();
+    bgCtx.globalAlpha = sketchOpacity;
+    bgCtx.translate(pan.x, pan.y);
+    bgCtx.scale(zoom, zoom);
+    bgCtx.drawImage(sketchImage, 0, 0);
+    bgCtx.restore();
+  }
+}
+
+function renderGrid() {
+  gridCtx.clearRect(0, 0, W, H);
+  const step = snapSize * zoom;
+  if (step < 6) return;
+  gridCtx.strokeStyle = 'rgba(59,130,246,0.08)';
+  gridCtx.lineWidth = 1;
+  const ox = ((pan.x % step) + step) % step;
+  const oy = ((pan.y % step) + step) % step;
+  for (let x = ox; x < W; x += step) {
+    gridCtx.beginPath(); gridCtx.moveTo(x, 0); gridCtx.lineTo(x, H); gridCtx.stroke();
+  }
+  for (let y = oy; y < H; y += step) {
+    gridCtx.beginPath(); gridCtx.moveTo(0, y); gridCtx.lineTo(W, y); gridCtx.stroke();
+  }
+  // Major grid
+  const major = step * 5;
+  gridCtx.strokeStyle = 'rgba(59,130,246,0.15)';
+  const omx = ((pan.x % major) + major) % major;
+  const omy = ((pan.y % major) + major) % major;
+  for (let x = omx; x < W; x += major) {
+    gridCtx.beginPath(); gridCtx.moveTo(x, 0); gridCtx.lineTo(x, H); gridCtx.stroke();
+  }
+  for (let y = omy; y < H; y += major) {
+    gridCtx.beginPath(); gridCtx.moveTo(0, y); gridCtx.lineTo(W, y); gridCtx.stroke();
+  }
+}
+
+function renderDraw() {
+  drawCtx.clearRect(0, 0, W, H);
+  drawCtx.save();
+  drawCtx.translate(pan.x, pan.y);
+  drawCtx.scale(zoom, zoom);
+
+  // Render all elements by layer order
+  const order = ['walls','doors','windows','furniture','labels'];
+  for (const layer of order) {
+    if (!layers[layer]) continue;
+    for (const el of elements) {
+      if (el.layer !== layer) continue;
+      drawElement(drawCtx, el, el === selected, el === hovering);
+    }
+  }
+
+  // Draw in-progress preview
+  if (isDrawing) {
+    drawCtx.globalAlpha = 0.6;
+    drawPreview(drawCtx);
+    drawCtx.globalAlpha = 1;
+  }
+
+  drawCtx.restore();
+}
+
+// ═══════════════════════════════════════════════════
+//  ELEMENT DRAWING
+// ═══════════════════════════════════════════════════
+function drawElement(ctx, el, sel, hov) {
+  ctx.save();
+  if (el.rotation) {
+    const cx = el.x + (el.w || 0)/2;
+    const cy = el.y + (el.h || 0)/2;
+    ctx.translate(cx, cy);
+    ctx.rotate(el.rotation * Math.PI/180);
+    ctx.translate(-cx, -cy);
+  }
+
+  const hlColor = sel ? '#6366f1' : hov ? '#60a5fa' : null;
+
+  switch (el.type) {
+    case 'wall':
+      drawWall(ctx, el, hlColor); break;
+    case 'door':
+      drawDoor(ctx, el, hlColor); break;
+    case 'window':
+      drawWindow(ctx, el, hlColor); break;
+    case 'desk':
+      drawDesk(ctx, el, hlColor); break;
+    case 'chair':
+      drawChair(ctx, el, hlColor); break;
+    case 'table':
+      drawTable(ctx, el, hlColor); break;
+    case 'cubicle':
+      drawCubicle(ctx, el, hlColor); break;
+    case 'label':
+      drawLabel(ctx, el, hlColor); break;
+  }
+
+  if (sel) {
+    drawSelectionHandles(ctx, el);
+  }
+  ctx.restore();
+}
+
+function drawWall(ctx, el, hl) {
+  ctx.lineCap = 'round';
+  ctx.lineWidth = el.thickness || wallThickness;
+  ctx.strokeStyle = hl || el.color || '#3b82f6';
+  if (hl) {
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = hl;
+  }
+  ctx.beginPath();
+  ctx.moveTo(el.x1, el.y1);
+  ctx.lineTo(el.x2, el.y2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  // End dots
+  ctx.fillStyle = hl || el.color || '#3b82f6';
+  ctx.beginPath(); ctx.arc(el.x1, el.y1, (el.thickness||wallThickness)/2, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(el.x2, el.y2, (el.thickness||wallThickness)/2, 0, Math.PI*2); ctx.fill();
+}
+
+function drawDoor(ctx, el, hl) {
+  const w = el.w || 40, h = el.h || 6;
+  const col = hl || el.color || '#10b981';
+  ctx.strokeStyle = col;
+  ctx.fillStyle = col + '22';
+  ctx.lineWidth = 2;
+  if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
+  // Frame
+  ctx.strokeRect(el.x, el.y, w, h);
+  // Arc swing
+  ctx.beginPath();
+  ctx.arc(el.x, el.y + h/2, w, -Math.PI/2, 0);
+  ctx.setLineDash([4, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
+  // Label
+  if (el.label) {
+    ctx.fillStyle = col;
+    ctx.font = '9px Barlow';
+    ctx.textAlign = 'center';
+    ctx.fillText(el.label, el.x + w/2, el.y - 4);
+  }
+}
+
+function drawWindow(ctx, el, hl) {
+  const w = el.w || 50, h = el.h || 8;
+  const col = hl || el.color || '#f59e0b';
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = col;
+  ctx.fillStyle = col + '15';
+  if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
+  ctx.fillRect(el.x, el.y, w, h);
+  ctx.strokeRect(el.x, el.y, w, h);
+  // Center line
+  ctx.beginPath();
+  ctx.moveTo(el.x + w/2, el.y);
+  ctx.lineTo(el.x + w/2, el.y + h);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+function drawDesk(ctx, el, hl) {
+  const w = el.w || 60, h = el.h || 40;
+  const col = hl || el.color || '#7c3aed';
+  ctx.fillStyle = col + '25';
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 2;
+  if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
+  ctx.fillRect(el.x, el.y, w, h);
+  ctx.strokeRect(el.x, el.y, w, h);
+  // Monitor hint
+  ctx.fillStyle = col + '60';
+  ctx.fillRect(el.x + w*0.2, el.y + h*0.15, w*0.6, h*0.4);
+  // Label
+  ctx.fillStyle = col;
+  ctx.font = 'bold 9px Barlow';
+  ctx.textAlign = 'center';
+  ctx.fillText(el.label || 'DESK', el.x + w/2, el.y + h - 5);
+  ctx.shadowBlur = 0;
+}
+
+function drawChair(ctx, el, hl) {
+  const r = (el.w || 20)/2;
+  const cx = el.x + r, cy = el.y + r;
+  const col = hl || el.color || '#db2777';
+  ctx.fillStyle = col + '30';
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 2;
+  if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  // Seat back
+  ctx.beginPath(); ctx.arc(cx, cy, r*0.55, 0, Math.PI*2);
+  ctx.fillStyle = col + '50'; ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+function drawTable(ctx, el, hl) {
+  const w = el.w || 80, h = el.h || 40;
+  const col = hl || el.color || '#0ea5e9';
+  ctx.fillStyle = col + '20';
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 2;
+  if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
+  ctx.fillRect(el.x, el.y, w, h);
+  ctx.strokeRect(el.x, el.y, w, h);
+  ctx.fillStyle = col;
+  ctx.font = 'bold 9px Barlow';
+  ctx.textAlign = 'center';
+  ctx.fillText(el.label || 'TABLE', el.x + w/2, el.y + h/2 + 4);
+  ctx.shadowBlur = 0;
+}
+
+function drawCubicle(ctx, el, hl) {
+  const w = el.w || 100, h = el.h || 80;
+  const col = hl || el.color || '#3b82f6';
+  ctx.fillStyle = col + '08';
+  ctx.strokeStyle = col;
+  ctx.lineWidth = hl ? 3 : 2;
+  if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
+  ctx.fillRect(el.x, el.y, w, h);
+  ctx.strokeRect(el.x, el.y, w, h);
+  // Corner tick marks
+  const t = 10;
+  ctx.lineWidth = 3;
+  [[0,0],[w,0],[0,h],[w,h]].forEach(([cx,cy]) => {
+    ctx.beginPath();
+    ctx.moveTo(el.x+cx+(cx?-t:t),el.y+cy);
+    ctx.lineTo(el.x+cx,el.y+cy);
+    ctx.lineTo(el.x+cx,el.y+cy+(cy?-t:t));
+    ctx.stroke();
+  });
+  if (el.label) {
+    ctx.fillStyle = col;
+    ctx.font = 'bold 11px Barlow';
+    ctx.textAlign = 'center';
+    ctx.fillText(el.label, el.x + w/2, el.y + 16);
+  }
+  ctx.shadowBlur = 0;
+}
+
+function drawLabel(ctx, el, hl) {
+  const col = hl || el.color || '#e2e8f0';
+  ctx.fillStyle = col;
+  ctx.font = `${el.bold ? 'bold ' : ''}${el.fontSize || 13}px Barlow`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  if (hl) { ctx.shadowBlur = 6; ctx.shadowColor = col; }
+  ctx.fillText(el.text || 'Label', el.x, el.y);
+  ctx.shadowBlur = 0;
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawSelectionHandles(ctx, el) {
+  const bb = getBounds(el);
+  if (!bb) return;
+  ctx.save();
+  ctx.strokeStyle = '#6366f1';
+  ctx.setLineDash([4, 3]);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bb.x - 4, bb.y - 4, bb.w + 8, bb.h + 8);
+  ctx.setLineDash([]);
+  // Handles
+  const handles = [
+    [bb.x-4, bb.y-4], [bb.x+bb.w/2, bb.y-4], [bb.x+bb.w+4, bb.y-4],
+    [bb.x-4, bb.y+bb.h/2], [bb.x+bb.w+4, bb.y+bb.h/2],
+    [bb.x-4, bb.y+bb.h+4], [bb.x+bb.w/2, bb.y+bb.h+4], [bb.x+bb.w+4, bb.y+bb.h+4]
+  ];
+  ctx.fillStyle = '#6366f1';
+  handles.forEach(([hx, hy]) => {
+    ctx.beginPath(); ctx.arc(hx, hy, 4, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.restore();
+}
+
+function getBounds(el) {
+  switch (el.type) {
+    case 'wall': {
+      const minX = Math.min(el.x1, el.x2), maxX = Math.max(el.x1, el.x2);
+      const minY = Math.min(el.y1, el.y2), maxY = Math.max(el.y1, el.y2);
+      return { x: minX, y: minY, w: maxX-minX || 4, h: maxY-minY || 4 };
+    }
+    case 'chair': return { x: el.x, y: el.y, w: el.w||20, h: el.w||20 };
+    case 'label': return { x: el.x, y: el.y, w: (el.text||'Label').length*8, h: el.fontSize||13 };
+    default: return { x: el.x, y: el.y, w: el.w||60, h: el.h||40 };
+  }
+}
+
+function drawPreview(ctx) {
+  const s = drawStart, c = drawCurrent;
+  const col = customColor;
+  switch (currentTool) {
+    case 'wall':
+      ctx.lineCap = 'round';
+      ctx.lineWidth = wallThickness;
+      ctx.strokeStyle = col;
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+      break;
+    case 'door':
+    case 'window':
+    case 'cubicle':
+    case 'desk':
+    case 'table': {
+      const w = c.x - s.x, h = c.y - s.y;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6,4]);
+      ctx.strokeRect(s.x, s.y, w, h);
+      ctx.setLineDash([]);
+      break;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  HIT TESTING
+// ═══════════════════════════════════════════════════
+function hitTest(wx, wy) {
+  for (let i = elements.length - 1; i >= 0; i--) {
+    const el = elements[i];
+    if (!layers[el.layer]) continue;
+    if (hitElement(el, wx, wy)) return el;
+  }
+  return null;
+}
+
+function hitElement(el, wx, wy) {
+  const PAD = 8;
+  switch (el.type) {
+    case 'wall': {
+      const d = distToSegment(wx, wy, el.x1, el.y1, el.x2, el.y2);
+      return d < (el.thickness||wallThickness)/2 + PAD;
+    }
+    default: {
+      const bb = getBounds(el);
+      if (!bb) return false;
+      return wx >= bb.x - PAD && wx <= bb.x + bb.w + PAD &&
+             wy >= bb.y - PAD && wy <= bb.y + bb.h + PAD;
+    }
+  }
+}
+
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx-ax, dy = by-ay;
+  const len2 = dx*dx + dy*dy;
+  if (len2 === 0) return Math.hypot(px-ax, py-ay);
+  let t = ((px-ax)*dx + (py-ay)*dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px-(ax+t*dx), py-(ay+t*dy));
+}
+
+// ═══════════════════════════════════════════════════
+//  TOOL HANDLING
+// ═══════════════════════════════════════════════════
+function setTool(t) {
+  currentTool = t;
+  document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('t-'+t);
+  if (btn) btn.classList.add('active');
+  document.getElementById('sb-tool').textContent = t;
+  wrap.className = '';
+  if (t === 'pan') wrap.classList.add('pan-mode');
+  else if (t === 'select') wrap.classList.add('select-mode');
+  selected = null;
+  renderDraw();
+  updatePropsPanel();
+}
+setTool('select');
+
+// ═══════════════════════════════════════════════════
+//  MOUSE EVENTS
+// ═══════════════════════════════════════════════════
+let mouseWorld = { x: 0, y: 0 };
+
+wrap.addEventListener('mousemove', (e) => {
+  const r = wrap.getBoundingClientRect();
+  const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  mouseWorld = toWorld(sx, sy);
+  const snapped = snapPt(mouseWorld.x, mouseWorld.y);
+
+  document.getElementById('sb-x').textContent = Math.round(snapped.x);
+  document.getElementById('sb-y').textContent = Math.round(snapped.y);
+
+  if (isPanning) {
+    pan.x = panOrigin.x + (e.clientX - panStart.x);
+    pan.y = panOrigin.y + (e.clientY - panStart.y);
+    renderAll();
+    return;
+  }
+
+  if (isDrawing) {
+    drawCurrent = snapped;
+    renderDraw();
+    return;
+  }
+
+  if (dragEl) {
+    const wp = toWorld(sx, sy);
+    const snp = snapPt(wp.x - dragOffset.x, wp.y - dragOffset.y);
+    moveElement(dragEl, snp.x, snp.y);
+    renderDraw();
+    return;
+  }
+
+  // Hover highlight
+  if (currentTool === 'select' || currentTool === 'eraser') {
+    const prev = hovering;
+    hovering = hitTest(mouseWorld.x, mouseWorld.y);
+    if (hovering !== prev) renderDraw();
+  }
+});
+
+wrap.addEventListener('mousedown', (e) => {
+  if (e.button === 1 || (e.button === 0 && spaceDown)) {
+    isPanning = true;
+    panStart = { x: e.clientX, y: e.clientY };
+    panOrigin = { ...pan };
+    wrap.classList.add('panning');
+    return;
+  }
+  if (e.button !== 0) return;
+
+  const r = wrap.getBoundingClientRect();
+  const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  const wp = toWorld(sx, sy);
+  const snapped = snapPt(wp.x, wp.y);
+
+  if (currentTool === 'pan') {
+    isPanning = true;
+    panStart = { x: e.clientX, y: e.clientY };
+    panOrigin = { ...pan };
+    return;
+  }
+
+  if (currentTool === 'select') {
+    const hit = hitTest(wp.x, wp.y);
+    if (hit) {
+      selected = hit;
+      const bb = getBounds(hit);
+      if (bb) dragOffset = { x: wp.x - (hit.x1 !== undefined ? hit.x1 : hit.x), y: wp.y - (hit.y1 !== undefined ? hit.y1 : hit.y) };
+      dragEl = hit;
+      dragStartPos = JSON.parse(JSON.stringify(hit));
+      renderDraw();
+      updatePropsPanel();
+    } else {
+      selected = null;
+      renderDraw();
+      updatePropsPanel();
+    }
+    return;
+  }
+
+  if (currentTool === 'eraser') {
+    const hit = hitTest(wp.x, wp.y);
+    if (hit) {
+      pushHistory();
+      elements = elements.filter(e => e !== hit);
+      selected = null;
+      renderDraw();
+      updateStatusBar();
+      showToast('Element deleted');
+    }
+    return;
+  }
+
+  if (currentTool === 'label') {
+    const text = prompt('Enter label text:');
+    if (!text) return;
+    pushHistory();
+    elements.push({ type:'label', layer:'labels', x:snapped.x, y:snapped.y, text, fontSize:13, color:customColor, bold:false });
+    renderDraw(); updateStatusBar();
+    return;
+  }
+
+  // Start drawing
+  isDrawing = true;
+  drawStart = snapped;
+  drawCurrent = snapped;
+});
+
+wrap.addEventListener('mouseup', (e) => {
+  if (isPanning) {
+    isPanning = false;
+    wrap.classList.remove('panning');
+    return;
+  }
+
+  if (dragEl) {
+    // If moved, push history
+    if (dragStartPos) pushHistory();
+    dragEl = null;
+    dragStartPos = null;
+    return;
+  }
+
+  if (!isDrawing) return;
+  isDrawing = false;
+
+  const r = wrap.getBoundingClientRect();
+  const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  const wp = toWorld(sx, sy);
+  const snapped = snapPt(wp.x, wp.y);
+  finishDraw(drawStart, snapped);
+});
+
+wrap.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const r = wrap.getBoundingClientRect();
+  const wp = toWorld(e.clientX - r.left, e.clientY - r.top);
+  const hit = hitTest(wp.x, wp.y);
+  if (hit) {
+    selected = hit;
+    renderDraw();
+    updatePropsPanel();
+    showContextMenu(e.clientX, e.clientY);
+  }
+});
+
+wrap.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const r = wrap.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  const newZoom = Math.max(0.1, Math.min(10, zoom * factor));
+  pan.x = mx - (mx - pan.x) * (newZoom / zoom);
+  pan.y = my - (my - pan.y) * (newZoom / zoom);
+  zoom = newZoom;
+  document.getElementById('zoom-display').textContent = Math.round(zoom*100)+'%';
+  document.getElementById('sb-zoom').textContent = Math.round(zoom*100)+'%';
+  renderAll();
+}, { passive: false });
+
+function moveElement(el, nx, ny) {
+  if (el.type === 'wall') {
+    const dx = nx - el.x1, dy = ny - el.y1;
+    el.x1 += dx; el.y1 += dy; el.x2 += dx; el.y2 += dy;
+  } else {
+    el.x = nx; el.y = ny;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  FINISH DRAW
+// ═══════════════════════════════════════════════════
+function finishDraw(s, e2) {
+  const dx = e2.x - s.x, dy = e2.y - s.y;
+  if (Math.abs(dx) < 3 && Math.abs(dy) < 3 && currentTool !== 'label') return;
+
+  pushHistory();
+  const col = customColor;
+
+  switch (currentTool) {
+    case 'wall':
+      elements.push({ type:'wall', layer:'walls', x1:s.x, y1:s.y, x2:e2.x, y2:e2.y, thickness:wallThickness, color:col });
+      break;
+    case 'door':
+      elements.push({ type:'door', layer:'doors', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||40, h:Math.abs(dy)||8, color:col, label:'' });
+      break;
+    case 'window':
+      elements.push({ type:'window', layer:'windows', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||50, h:Math.abs(dy)||8, color:col });
+      break;
+    case 'desk':
+      elements.push({ type:'desk', layer:'furniture', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||60, h:Math.abs(dy)||40, color:col, label:'TESTING' });
+      break;
+    case 'chair':
+      elements.push({ type:'chair', layer:'furniture', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||20, color:col });
+      break;
+    case 'table':
+      elements.push({ type:'table', layer:'furniture', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||80, h:Math.abs(dy)||40, color:col, label:'TABLE' });
+      break;
+    case 'cubicle':
+      elements.push({ type:'cubicle', layer:'walls', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||100, h:Math.abs(dy)||80, color:col, label:'' });
+      break;
+  }
+  renderDraw();
+  updateStatusBar();
+}
+
+// ═══════════════════════════════════════════════════
+//  KEYBOARD
+// ═══════════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !e.target.matches('input,textarea')) {
+    spaceDown = true;
+    wrap.classList.add('pan-mode');
+    e.preventDefault();
+  }
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'z') { undo(); e.preventDefault(); }
+    if (e.key === 'y') { redo(); e.preventDefault(); }
+    if (e.key === 'd') { if(selected) ctxDuplicate(); e.preventDefault(); }
+  }
+  if (!e.ctrlKey && !e.metaKey && !e.target.matches('input,textarea')) {
+    if (e.key === 'v' || e.key === 'V') setTool('select');
+    if (e.key === 'w' || e.key === 'W') setTool('wall');
+    if (e.key === 'd' || e.key === 'D') setTool('door');
+    if (e.key === 'n' || e.key === 'N') setTool('window');
+    if (e.key === 't' || e.key === 'T') setTool('label');
+    if (e.key === 'e' || e.key === 'E') setTool('eraser');
+    if (e.key === 'h' || e.key === 'H') setTool('pan');
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (selected) { pushHistory(); elements = elements.filter(x=>x!==selected); selected=null; renderDraw(); updateStatusBar(); }
+    }
+    if (e.key === 'Escape') { selected=null; isDrawing=false; renderDraw(); updatePropsPanel(); }
+  }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'Space') {
+    spaceDown = false;
+    wrap.classList.remove('pan-mode');
+  }
+});
+
+// ═══════════════════════════════════════════════════
+//  UNDO / REDO
+// ═══════════════════════════════════════════════════
+function pushHistory() {
+  history.push(JSON.parse(JSON.stringify(elements)));
+  if (history.length > 60) history.shift();
+  redoStack = [];
+}
+function undo() {
+  if (!history.length) return;
+  redoStack.push(JSON.parse(JSON.stringify(elements)));
+  elements = history.pop();
+  selected = null;
+  renderDraw(); updateStatusBar(); showToast('Undo');
+}
+function redo() {
+  if (!redoStack.length) return;
+  history.push(JSON.parse(JSON.stringify(elements)));
+  elements = redoStack.pop();
+  selected = null;
+  renderDraw(); updateStatusBar(); showToast('Redo');
+}
+
+// ═══════════════════════════════════════════════════
+//  ZOOM / PAN
+// ═══════════════════════════════════════════════════
+function zoomIn() { setZoom(zoom * 1.25); }
+function zoomOut() { setZoom(zoom / 1.25); }
+function zoomReset() { zoom = 1; pan = { x: 40, y: 40 }; renderAll(); updateZoomDisplay(); }
+function setZoom(z) {
+  zoom = Math.max(0.1, Math.min(10, z));
+  renderAll(); updateZoomDisplay();
+}
+function updateZoomDisplay() {
+  document.getElementById('zoom-display').textContent = Math.round(zoom*100)+'%';
+  document.getElementById('sb-zoom').textContent = Math.round(zoom*100)+'%';
+}
+function fitToWindow() {
+  if (sketchImage) {
+    const scaleX = (W - 40) / sketchImage.width;
+    const scaleY = (H - 40) / sketchImage.height;
+    zoom = Math.min(scaleX, scaleY);
+    pan = { x: 20, y: 20 };
+  } else {
+    zoom = 1; pan = { x: 20, y: 20 };
+  }
+  renderAll(); updateZoomDisplay();
+}
+
+// ═══════════════════════════════════════════════════
+//  SNAP
+// ═══════════════════════════════════════════════════
+function toggleSnap() {
+  snapOn = !snapOn;
+  document.getElementById('snap-icon').textContent = snapOn ? '🔲' : '⬜';
+  showToast('Snap ' + (snapOn ? 'ON' : 'OFF'));
+}
+
+// ═══════════════════════════════════════════════════
+//  SKETCH OPACITY
+// ═══════════════════════════════════════════════════
+function setSketchOpacity(v) {
+  sketchOpacity = v / 100;
+  document.getElementById('so-label').textContent = v + '%';
+  renderBG();
+}
+
+// ═══════════════════════════════════════════════════
+//  LAYERS
+// ═══════════════════════════════════════════════════
+function toggleLayer(name, e) {
+  e.stopPropagation();
+  layers[name] = !layers[name];
+  renderAll();
+}
+
+// ═══════════════════════════════════════════════════
+//  PROPERTIES PANEL
+// ═══════════════════════════════════════════════════
+function updatePropsPanel() {
+  const el = selected;
+  const cont = document.getElementById('props-content');
+  if (!el) {
+    cont.innerHTML = '<span style="color:var(--muted);font-size:11px">Select an element to edit.</span>';
+    return;
+  }
+  let html = `<div class="prop-row"><label>Type</label><span style="color:var(--accent)">${el.type}</span></div>`;
+
+  if (el.type !== 'wall') {
+    html += `<div class="prop-row"><label>X</label><input type="number" value="${Math.round(el.x)}" onchange="selProp('x',+this.value)"></div>`;
+    html += `<div class="prop-row"><label>Y</label><input type="number" value="${Math.round(el.y)}" onchange="selProp('y',+this.value)"></div>`;
+  }
+  if (el.w !== undefined) {
+    html += `<div class="prop-row"><label>W</label><input type="number" value="${Math.round(el.w)}" onchange="selProp('w',+this.value)"></div>`;
+  }
+  if (el.h !== undefined && el.type !== 'chair') {
+    html += `<div class="prop-row"><label>H</label><input type="number" value="${Math.round(el.h)}" onchange="selProp('h',+this.value)"></div>`;
+  }
+  if (el.type === 'wall') {
+    html += `<div class="prop-row"><label>Thickness</label><input type="number" value="${el.thickness||6}" onchange="selProp('thickness',+this.value)"></div>`;
+  }
+  if (el.label !== undefined) {
+    html += `<div class="prop-row" style="flex-direction:column;align-items:flex-start;gap:3px"><label>Label</label><input type="text" value="${el.label||''}" onchange="selProp('label',this.value)" style="width:100%"></div>`;
+  }
+  if (el.text !== undefined) {
+    html += `<div class="prop-row" style="flex-direction:column;align-items:flex-start;gap:3px"><label>Text</label><input type="text" value="${el.text||''}" onchange="selProp('text',this.value)" style="width:100%"></div>`;
+    html += `<div class="prop-row"><label>Size</label><input type="number" value="${el.fontSize||13}" onchange="selProp('fontSize',+this.value)"></div>`;
+  }
+  html += `<div class="prop-row"><label>Color</label><input type="color" value="${el.color||'#3b82f6'}" oninput="selProp('color',this.value)"></div>`;
+  if (el.rotation !== undefined) {
+    html += `<div class="prop-row"><label>Rotate°</label><input type="number" value="${el.rotation||0}" onchange="selProp('rotation',+this.value)"></div>`;
+  } else {
+    html += `<div class="prop-row"><label>Rotate°</label><input type="number" value="0" onchange="selProp('rotation',+this.value)"></div>`;
+  }
+  html += `<button class="del-btn" onclick="deleteSelected()">🗑 Delete Element</button>`;
+  cont.innerHTML = html;
+}
+
+function selProp(k, v) {
+  if (!selected) return;
+  selected[k] = v;
+  renderDraw();
+}
+function deleteSelected() {
+  if (!selected) return;
+  pushHistory();
+  elements = elements.filter(e => e !== selected);
+  selected = null;
+  renderDraw(); updateStatusBar(); updatePropsPanel();
+}
+
+// ═══════════════════════════════════════════════════
+//  CONTEXT MENU
+// ═══════════════════════════════════════════════════
+const ctxMenu = document.getElementById('ctx-menu');
+function showContextMenu(x, y) {
+  ctxMenu.style.left = x+'px';
+  ctxMenu.style.top = y+'px';
+  ctxMenu.classList.add('show');
+}
+function hideContextMenu() { ctxMenu.classList.remove('show'); }
+document.addEventListener('click', hideContextMenu);
+document.addEventListener('keydown', e => { if(e.key==='Escape') hideContextMenu(); });
+
+function ctxDuplicate() {
+  if (!selected) return;
+  pushHistory();
+  const clone = JSON.parse(JSON.stringify(selected));
+  if (clone.type === 'wall') { clone.x1 += 20; clone.y1 += 20; clone.x2 += 20; clone.y2 += 20; }
+  else { clone.x = (clone.x||0) + 20; clone.y = (clone.y||0) + 20; }
+  elements.push(clone);
+  selected = clone;
+  renderDraw(); updateStatusBar(); updatePropsPanel();
+  hideContextMenu();
+}
+function ctxEditLabel() {
+  if (!selected) return;
+  const key = selected.text !== undefined ? 'text' : 'label';
+  const val = prompt('Edit text:', selected[key]||'');
+  if (val !== null) { selected[key] = val; renderDraw(); }
+  hideContextMenu();
+}
+function ctxRotate() {
+  if (!selected) return;
+  selected.rotation = ((selected.rotation||0) + 90) % 360;
+  renderDraw();
+  hideContextMenu();
+}
+function ctxBringFront() {
+  if (!selected) return;
+  elements = elements.filter(e => e !== selected);
+  elements.push(selected);
+  renderDraw();
+  hideContextMenu();
+}
+function ctxSendBack() {
+  if (!selected) return;
+  elements = elements.filter(e => e !== selected);
+  elements.unshift(selected);
+  renderDraw();
+  hideContextMenu();
+}
+function ctxDelete() {
+  deleteSelected();
+  hideContextMenu();
+}
+
+// ═══════════════════════════════════════════════════
+//  QUICK PLACE
+// ═══════════════════════════════════════════════════
+function placeADA() {
+  pushHistory();
+  const x = snap((-pan.x/zoom) + W/(zoom*2) - 40);
+  const y = snap((-pan.y/zoom) + H/(zoom*2) - 40);
+  elements.push({ type:'cubicle', layer:'walls', x, y, w:80, h:80, color:'#10b981', label:'ADA STATION' });
+  elements.push({ type:'desk', layer:'furniture', x:x+10, y:y+10, w:60, h:40, color:'#10b981', label:'ADA' });
+  renderDraw(); updateStatusBar();
+  showToast('ADA Station placed');
+}
+function placeOffice() {
+  pushHistory();
+  const x = snap((-pan.x/zoom) + W/(zoom*2) - 60);
+  const y = snap((-pan.y/zoom) + H/(zoom*2) - 60);
+  elements.push({ type:'cubicle', layer:'walls', x, y, w:120, h:100, color:'#3b82f6', label:'OFFICE' });
+  elements.push({ type:'desk', layer:'furniture', x:x+15, y:y+20, w:80, h:50, color:'#7c3aed', label:'DESK' });
+  elements.push({ type:'chair', layer:'furniture', x:x+40, y:y+75, w:24, color:'#db2777' });
+  renderDraw(); updateStatusBar();
+  showToast('Office set placed');
+}
+
+// ═══════════════════════════════════════════════════
+//  IMAGE LOADING
+// ═══════════════════════════════════════════════════
+function importImage() {
+  document.getElementById('file-input').click();
+}
+document.getElementById('file-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadImageFile(file);
+});
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('click', () => document.getElementById('file-input').click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) loadImageFile(file);
+});
+
+function loadImageFile(file) {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    sketchImage = img;
+    dismissOverlay();
+    fitToWindow();
+    showToast('Sketch loaded — adjust opacity slider to fade');
+  };
+  img.src = url;
+}
+
+function dismissOverlay() {
+  document.getElementById('load-overlay').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════
+function exportPNG() {
+  const exp = document.createElement('canvas');
+  exp.width = W; exp.height = H;
+  const ctx = exp.getContext('2d');
+  ctx.fillStyle = '#0a0d14';
+  ctx.fillRect(0, 0, W, H);
+  [bgC, gridC, drawC].forEach(c => ctx.drawImage(c, 0, 0));
+  // Watermark
+  ctx.fillStyle = 'rgba(59,130,246,0.4)';
+  ctx.font = '11px Share Tech Mono';
+  ctx.fillText('HPU OARS · Floor Plan Editor', 10, H - 10);
+  const a = document.createElement('a');
+  a.download = 'oars-floor-plan.png';
+  a.href = exp.toDataURL('image/png');
+  a.click();
+  showToast('Exported as PNG');
+}
+
+// ═══════════════════════════════════════════════════
+//  CLEAR
+// ═══════════════════════════════════════════════════
+function clearAll() {
+  if (!confirm('Clear all drawn elements?')) return;
+  pushHistory();
+  elements = [];
+  selected = null;
+  renderDraw(); updateStatusBar(); updatePropsPanel();
+  showToast('Canvas cleared');
+}
+
+// ═══════════════════════════════════════════════════
+//  STATUS BAR
+// ═══════════════════════════════════════════════════
+function updateStatusBar() {
+  document.getElementById('sb-count').textContent = elements.length;
+}
+
+// ═══════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ═══════════════════════════════════════════════════
+//  DATE
+// ═══════════════════════════════════════════════════
+document.getElementById('sb-date').textContent = new Date().toLocaleDateString();
+
+// Init pan to center
+pan = { x: 40, y: 40 };
+renderAll();
+</script>
+</body>
+</html>
