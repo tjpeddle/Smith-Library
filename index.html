@@ -535,6 +535,9 @@
     <button class="tbtn door" id="t-door" onclick="setTool('door')" title="Place Door (D)">
       <span class="icon">🚪</span>Door
     </button>
+    <button class="tbtn" id="t-arch" onclick="setTool('arch')" title="Place Arch / Door Swing — drag to size, flip in Properties">
+      <span class="icon">⌒</span>Arch
+    </button>
     <button class="tbtn window" id="t-window" onclick="setTool('window')" title="Place Window (N)">
       <span class="icon">⬜</span>Window
     </button>
@@ -682,11 +685,17 @@
 
     <div class="sp-section">
       <div class="sp-title">Map Legend</div>
-      <div id="legend-items" style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px;font-size:11px"></div>
-      <button class="tbtn" style="width:100%;justify-content:flex-start;font-size:11px" onclick="addLegendItem()">＋ Add Legend Entry</button>
-      <div style="margin-top:4px;display:flex;gap:4px;">
-        <button class="tbtn" style="flex:1;font-size:10px" onclick="moveLegend()">Move Legend</button>
-        <button class="tbtn" style="flex:1;font-size:10px" onclick="toggleLegendOnCanvas()">Show on Map</button>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Drag the legend box directly on the canvas to move it.</div>
+      <div id="legend-items" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+      <button class="tbtn" style="width:100%;justify-content:flex-start;font-size:11px" onclick="addLegendItem()">＋ Add Entry</button>
+      <div style="margin-top:6px;display:flex;gap:4px;align-items:center;">
+        <span style="font-size:10px;color:var(--muted)">Title font</span>
+        <input type="number" id="legend-title-size" value="10" min="7" max="20" style="width:40px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:2px 4px;font-size:10px" oninput="legendTitleSize=+this.value;renderDraw()">
+        <span style="font-size:10px;color:var(--muted)">Item font</span>
+        <input type="number" id="legend-item-size" value="12" min="7" max="20" style="width:40px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:2px 4px;font-size:10px" oninput="legendItemSize=+this.value;renderDraw()">
+      </div>
+      <div style="margin-top:4px;">
+        <button class="tbtn" style="width:100%;font-size:10px" onclick="toggleLegendOnCanvas()" id="btn-legend-toggle">👁 Show on Map</button>
       </div>
     </div>
 
@@ -853,10 +862,13 @@ let selected = null;
 let hovering = null;
 
 // Legend state
-let legendItems = []; // [{color, text}]
+let legendItems = []; // [{color, text, shape}]
 let legendVisible = true;
-let legendX = 20, legendY = 20; // canvas world coords
+let legendX = 20, legendY = 20;
 let legendDragging = false;
+let legendDragOX = 0, legendDragOY = 0;
+let legendTitleSize = 10;
+let legendItemSize = 12;
 
 // Drawing state
 let isDrawing = false;
@@ -1068,6 +1080,8 @@ function drawElement(ctx, el, sel, hov) {
       drawWall(ctx, el, hlColor); break;
     case 'door':
       drawDoor(ctx, el, hlColor); break;
+    case 'arch':
+      drawArch(ctx, el, hlColor); break;
     case 'window':
       drawWindow(ctx, el, hlColor); break;
     case 'desk':
@@ -1153,6 +1167,86 @@ function drawDoor(ctx, el, hl) {
   ctx.fillStyle = col;
   ctx.lineWidth = 0;
   ctx.beginPath(); ctx.arc(hx, hy, 2, 0, Math.PI * 2); ctx.fill();
+
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// ── Arch / Door Swing ────────────────────────────
+// el.w = span width, el.h = depth of arch (auto = w/2 for quarter circle)
+// el.flip = false (swing up/left), true (swing down/right)
+// el.lineStyle = 'solid' | 'dashed' | 'dotted'
+// el.rotation = degrees to rotate the whole thing
+function drawArch(ctx, el, hl) {
+  const span  = el.w  || 40;
+  const depth = el.h  || span;   // depth = radius of the arc
+  const col   = hl || el.color || '#10b981';
+  const flip  = el.flip  || false;
+  const style = el.lineStyle || 'solid';
+
+  ctx.save();
+
+  // Rotate around hinge corner (el.x, el.y)
+  if (el.rotation) {
+    ctx.translate(el.x, el.y);
+    ctx.rotate(el.rotation * Math.PI / 180);
+    ctx.translate(-el.x, -el.y);
+  }
+
+  if (hl) { ctx.shadowBlur = 6; ctx.shadowColor = col; }
+  ctx.strokeStyle = col;
+
+  // Line style
+  if (style === 'dashed')  ctx.setLineDash([6, 4]);
+  else if (style === 'dotted') ctx.setLineDash([2, 3]);
+  else ctx.setLineDash([]);
+
+  // Wall stop marks at each end of the opening
+  ctx.lineWidth = 1.5;
+  const stopLen = 5;
+  // Hinge side
+  ctx.beginPath();
+  ctx.moveTo(el.x, el.y - stopLen);
+  ctx.lineTo(el.x, el.y + stopLen);
+  ctx.stroke();
+  // Far side
+  ctx.beginPath();
+  ctx.moveTo(el.x + span, el.y - stopLen);
+  ctx.lineTo(el.x + span, el.y + stopLen);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+
+  // Door leaf — solid line regardless of style
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(el.x, el.y);
+  ctx.lineTo(el.x + span, el.y);
+  ctx.stroke();
+
+  // Swing arc — same style as chosen
+  if (style === 'dashed')  ctx.setLineDash([6, 4]);
+  else if (style === 'dotted') ctx.setLineDash([2, 3]);
+  else ctx.setLineDash([]);
+
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  if (!flip) {
+    // Arc swings upward (from hinge at el.x, el.y)
+    ctx.arc(el.x, el.y, span, 0, -Math.PI / 2, true);
+  } else {
+    // Arc swings downward
+    ctx.arc(el.x, el.y, span, 0, Math.PI / 2, false);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Hinge pin
+  ctx.fillStyle = col;
+  ctx.lineWidth = 0;
+  ctx.beginPath();
+  ctx.arc(el.x, el.y, 3, 0, Math.PI * 2);
+  ctx.fill();
 
   ctx.shadowBlur = 0;
   ctx.restore();
@@ -1467,37 +1561,114 @@ function drawZone(ctx, el, hl) {
   ctx.shadowBlur = 0; ctx.restore();
 }
 
-// ── Legend renderer (drawn on top of everything) ──
+// ── Legend renderer ───────────────────────────────
+function getLegendBoxDims() {
+  const PAD = 10, SW = 18, SH = 16;
+  const ROW = legendItemSize + 8;
+  const titleH = legendTitleSize + 8;
+  const maxLen = legendItems.reduce((m, i) => Math.max(m, (i.text||'').length), 0);
+  const boxW = PAD*2 + SW + 10 + Math.max(80, Math.min(maxLen, 22) * (legendItemSize * 0.62));
+  const boxH = PAD + titleH + ROW * legendItems.length + PAD/2;
+  return { PAD, SW, SH, ROW, titleH, boxW, boxH };
+}
+
 function renderLegend(ctx) {
   if (!legendVisible || legendItems.length === 0) return;
-  const PAD = 10, SW = 16, SH = 14, ROW = 22, fontSize = 12;
+  const { PAD, SW, SH, ROW, titleH, boxW, boxH } = getLegendBoxDims();
   ctx.save();
   ctx.translate(pan.x, pan.y); ctx.scale(zoom, zoom);
-  const maxText = legendItems.reduce((m,i) => Math.max(m, i.text.length), 0);
-  const boxW = PAD*2 + SW + 8 + Math.min(maxText, 24) * 7;
-  const boxH = PAD*2 + ROW * legendItems.length + 6;
+
   // Background
-  ctx.fillStyle = 'rgba(15,17,23,0.88)';
+  ctx.fillStyle = 'rgba(12,14,22,0.92)';
   ctx.strokeStyle = '#3b82f6';
   ctx.lineWidth = 1.5;
-  roundRect(ctx, legendX, legendY, boxW, boxH, 6);
+  roundRect(ctx, legendX, legendY, boxW, boxH, 7);
   ctx.fill(); ctx.stroke();
+
+  // Drag handle hint (top bar)
+  ctx.fillStyle = 'rgba(59,130,246,0.15)';
+  roundRect(ctx, legendX, legendY, boxW, titleH + PAD, 7);
+  ctx.fill();
+
   // Title
-  ctx.fillStyle = '#3b82f6';
-  ctx.font = 'bold 10px Barlow';
+  ctx.fillStyle = '#60a5fa';
+  ctx.font = `bold ${legendTitleSize}px Barlow`;
   ctx.textAlign = 'left';
-  ctx.fillText('LEGEND', legendX + PAD, legendY + PAD + 8);
+  ctx.textBaseline = 'middle';
+  ctx.fillText('LEGEND', legendX + PAD, legendY + PAD + titleH/2);
+
   // Items
   legendItems.forEach((item, i) => {
-    const iy = legendY + PAD + 20 + i * ROW;
-    ctx.fillStyle = item.color;
-    ctx.fillRect(legendX + PAD, iy, SW, SH);
-    ctx.strokeStyle = item.color + 'cc'; ctx.lineWidth = 1;
-    ctx.strokeRect(legendX + PAD, iy, SW, SH);
-    ctx.fillStyle = '#e2e8f0'; ctx.font = `${fontSize}px Barlow`;
-    ctx.fillText(item.text, legendX + PAD + SW + 8, iy + SH - 2);
+    const iy = legendY + PAD + titleH + i * ROW;
+    const cy = iy + SH/2;
+    const col = item.color || '#3b82f6';
+    const shape = item.shape || 'rect';
+
+    // Draw mini shape icon
+    ctx.save();
+    ctx.fillStyle = col + '55';
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5;
+    switch(shape) {
+      case 'circle':
+        ctx.beginPath();
+        ctx.arc(legendX + PAD + SW/2, cy, SW/2, 0, Math.PI*2);
+        ctx.fill(); ctx.stroke();
+        break;
+      case 'halfcircle':
+        ctx.beginPath();
+        ctx.arc(legendX + PAD + SW/2, cy + SH/4, SW/2, Math.PI, Math.PI*2);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        break;
+      case 'line':
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(legendX + PAD, cy);
+        ctx.lineTo(legendX + PAD + SW, cy);
+        ctx.stroke();
+        break;
+      case 'hatch':
+        ctx.fillRect(legendX + PAD, iy, SW, SH);
+        ctx.strokeRect(legendX + PAD, iy, SW, SH);
+        ctx.save();
+        ctx.rect(legendX+PAD, iy, SW, SH); ctx.clip();
+        ctx.lineWidth = 1;
+        for (let d = -SH; d < SW+SH; d += 5) {
+          ctx.beginPath(); ctx.moveTo(legendX+PAD+d, iy); ctx.lineTo(legendX+PAD+d-SH, iy+SH); ctx.stroke();
+        }
+        ctx.restore();
+        break;
+      case 'door':
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(legendX+PAD, cy); ctx.lineTo(legendX+PAD+SW, cy); ctx.stroke();
+        ctx.setLineDash([2,1]);
+        ctx.beginPath(); ctx.arc(legendX+PAD, cy, SW, 0, Math.PI/2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(legendX+PAD, cy, 2, 0, Math.PI*2); ctx.fill();
+        break;
+      default: // rect
+        ctx.fillRect(legendX + PAD, iy, SW, SH);
+        ctx.strokeRect(legendX + PAD, iy, SW, SH);
+    }
+    ctx.restore();
+
+    // Label text
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = `${legendItemSize}px Barlow`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.text || '', legendX + PAD + SW + 8, cy, boxW - PAD*2 - SW - 10);
   });
+
+  ctx.textBaseline = 'alphabetic';
   ctx.restore();
+}
+
+function legendHitTest(wx, wy) {
+  if (!legendVisible || legendItems.length === 0) return false;
+  const { boxW, boxH } = getLegendBoxDims();
+  return wx >= legendX && wx <= legendX + boxW && wy >= legendY && wy <= legendY + boxH;
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -1581,7 +1752,9 @@ function getBounds(el) {
       const minY = Math.min(el.y1, el.y2), maxY = Math.max(el.y1, el.y2);
       return { x: minX, y: minY, w: maxX-minX || 4, h: maxY-minY || 4 };
     }
-    case 'chair': return { x: el.x, y: el.y, w: el.w||20, h: el.w||20 };
+    case 'arch':
+      // Bounding box covers the swing quarter
+      return { x: el.x, y: el.flip ? el.y : el.y - (el.w||40), w: el.w||40, h: el.w||40 };
     case 'label': return { x: el.x, y: el.y, w: (el.text||'Label').length*8, h: el.fontSize||13 };
     default: return { x: el.x, y: el.y, w: el.w||60, h: el.h||40 };
   }
@@ -1723,9 +1896,18 @@ function drawPreview(ctx) {
       ctx.strokeStyle = col;
       ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(c.x, c.y); ctx.stroke();
       break;
-    case 'door':
-    case 'window':
-    case 'cubicle':
+    case 'arch': {
+      const span = Math.abs(c.x - s.x) || 40;
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x + span, s.y); ctx.stroke();
+      ctx.lineWidth = 1.5; ctx.setLineDash([5,3]);
+      ctx.beginPath(); ctx.arc(s.x, s.y, span, 0, -Math.PI/2, true); ctx.stroke();
+      ctx.setLineDash([]);
+      // Hinge dot
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, Math.PI*2); ctx.fill();
+      break;
+    }
     case 'zone':
     case 'desk':
     case 'table': {
@@ -1834,6 +2016,13 @@ wrap.addEventListener('mousemove', (e) => {
     return;
   }
 
+  if (legendDragging) {
+    legendX = mouseWorld.x - legendDragOX;
+    legendY = mouseWorld.y - legendDragOY;
+    renderDraw();
+    return;
+  }
+
   if (isBandSelecting) {
     bandCurrent = { x: mouseWorld.x, y: mouseWorld.y };
     renderDraw();
@@ -1874,10 +2063,10 @@ wrap.addEventListener('mousemove', (e) => {
   if (currentTool === 'select' || currentTool === 'eraser') {
     const prev = hovering;
     hovering = hitTest(mouseWorld.x, mouseWorld.y);
-    // Resize cursor when over handle of selected element
     if (selected && currentTool === 'select') {
       const h = getResizeHandle(selected, mouseWorld.x, mouseWorld.y);
-      wrap.style.cursor = h ? getHandleCursor(h) : (hovering ? 'move' : 'default');
+      if (legendHitTest(mouseWorld.x, mouseWorld.y)) wrap.style.cursor = 'grab';
+      else wrap.style.cursor = h ? getHandleCursor(h) : (hovering ? 'move' : 'default');
     }
     if (hovering !== prev) renderDraw();
   }
@@ -1897,6 +2086,15 @@ wrap.addEventListener('mousedown', (e) => {
   const sx = e.clientX - r.left, sy = e.clientY - r.top;
   const wp = toWorld(sx, sy);
   const snapped = snapPt(wp.x, wp.y);
+
+  // Legend drag — check before anything else in select mode
+  if (currentTool === 'select' && legendHitTest(wp.x, wp.y)) {
+    legendDragging = true;
+    legendDragOX = wp.x - legendX;
+    legendDragOY = wp.y - legendY;
+    wrap.style.cursor = 'grabbing';
+    return;
+  }
 
   if (currentTool === 'pan') {
     isPanning = true;
@@ -1985,6 +2183,12 @@ wrap.addEventListener('mousedown', (e) => {
 });
 
 wrap.addEventListener('mouseup', (e) => {
+  if (legendDragging) {
+    legendDragging = false;
+    wrap.style.cursor = '';
+    return;
+  }
+
   if (isPanning) {
     isPanning = false;
     wrap.classList.remove('panning');
@@ -2092,6 +2296,13 @@ function finishDraw(s, e2) {
       const el = { type:'door', layer:'doors', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||30, h:Math.abs(dy)||6, color:col, label:'', rotation:0 };
       elements.push(el);
       snapDoorToWall(el);
+      break;
+    }
+    case 'arch': {
+      const el = { type:'arch', layer:'doors', x:s.x, y:s.y, w:Math.abs(dx)||40, h:Math.abs(dx)||40, color:col, rotation:0, flip:false, lineStyle:'solid' };
+      elements.push(el);
+      selected = el;
+      updatePropsPanel();
       break;
     }
     case 'window': {
@@ -2345,7 +2556,24 @@ function updatePropsPanel() {
   if (el.fontSize !== undefined) {
     html += `<div class="prop-row"><label>Font size</label><input type="number" value="${el.fontSize||13}" onchange="selProp('fontSize',+this.value)"></div>`;
   }
-  // Label size — available for ALL element types that have a label/text
+  // Arch-specific controls
+  if (el.type === 'arch') {
+    html += `
+    <div class="prop-row"><label>Span (W)</label><input type="number" value="${Math.round(el.w||40)}" onchange="selProp('w',+this.value);selProp('h',+this.value)"></div>
+    <div class="prop-row"><label>Flip swing</label>
+      <div style="display:flex;gap:4px;">
+        <button onclick="selProp('flip',false)" style="font-size:10px;padding:3px 8px;background:${!el.flip?'rgba(59,130,246,0.3)':'var(--panel2)'};border:1px solid ${!el.flip?'var(--accent)':'var(--border)'};color:var(--text);border-radius:3px;cursor:pointer">⌒ Up</button>
+        <button onclick="selProp('flip',true)"  style="font-size:10px;padding:3px 8px;background:${el.flip?'rgba(59,130,246,0.3)':'var(--panel2)'};border:1px solid ${el.flip?'var(--accent)':'var(--border)'};color:var(--text);border-radius:3px;cursor:pointer">⌣ Down</button>
+      </div>
+    </div>
+    <div class="prop-row"><label>Line style</label>
+      <div style="display:flex;gap:4px;">
+        <button onclick="selProp('lineStyle','solid')"  style="font-size:10px;padding:3px 7px;background:${(el.lineStyle||'solid')==='solid'?'rgba(59,130,246,0.3)':'var(--panel2)'};border:1px solid ${(el.lineStyle||'solid')==='solid'?'var(--accent)':'var(--border)'};color:var(--text);border-radius:3px;cursor:pointer">—— Solid</button>
+        <button onclick="selProp('lineStyle','dashed')" style="font-size:10px;padding:3px 7px;background:${el.lineStyle==='dashed'?'rgba(59,130,246,0.3)':'var(--panel2)'};border:1px solid ${el.lineStyle==='dashed'?'var(--accent)':'var(--border)'};color:var(--text);border-radius:3px;cursor:pointer">- - Dashed</button>
+        <button onclick="selProp('lineStyle','dotted')" style="font-size:10px;padding:3px 7px;background:${el.lineStyle==='dotted'?'rgba(59,130,246,0.3)':'var(--panel2)'};border:1px solid ${el.lineStyle==='dotted'?'var(--accent)':'var(--border)'};color:var(--text);border-radius:3px;cursor:pointer">··· Dotted</button>
+      </div>
+    </div>`;
+  }
   if (['cubicle','stairs','elevator','circle','halfcircle','zone','desk','table'].includes(el.type)) {
     html += `<div class="prop-row"><label>Font size</label>
       <div style="display:flex;align-items:center;gap:4px;">
@@ -2524,35 +2752,16 @@ function placeElevator() {
 function addLegendItem() {
   const text = prompt('Legend entry text (e.g. "Testing Station"):');
   if (!text) return;
-  legendItems.push({ color: customColor, text });
+  legendItems.push({ color: customColor, text, shape: 'rect' });
   legendVisible = true;
   renderLegendPanel();
   renderDraw();
-  showToast('Legend entry added');
-}
-
-function renderLegendPanel() {
-  const cont = document.getElementById('legend-items');
-  if (!cont) return;
-  cont.innerHTML = legendItems.map((item, i) => `
-    <div style="display:flex;align-items:center;gap:6px;">
-      <div style="width:14px;height:14px;border-radius:2px;background:${item.color};flex-shrink:0;cursor:pointer" onclick="changeLegendColor(${i})" title="Click to change color"></div>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)">${item.text}</span>
-      <span style="cursor:pointer;color:var(--muted);font-size:13px" onclick="editLegendItem(${i})" title="Edit">✏</span>
-      <span style="cursor:pointer;color:#f87171;font-size:13px" onclick="removeLegendItem(${i})" title="Remove">✕</span>
-    </div>
-  `).join('');
+  showToast('Legend entry added — use color picker and shape buttons to style it');
 }
 
 function editLegendItem(i) {
   const text = prompt('Edit legend text:', legendItems[i].text);
   if (text !== null) { legendItems[i].text = text; renderLegendPanel(); renderDraw(); }
-}
-
-function changeLegendColor(i) {
-  legendItems[i].color = customColor;
-  renderLegendPanel(); renderDraw();
-  showToast('Color updated to current color');
 }
 
 function removeLegendItem(i) {
@@ -2562,20 +2771,35 @@ function removeLegendItem(i) {
 
 function toggleLegendOnCanvas() {
   legendVisible = !legendVisible;
+  const btn = document.getElementById('btn-legend-toggle');
+  if (btn) btn.textContent = legendVisible ? '👁 Show on Map' : '👁 Hidden';
   renderDraw();
-  showToast('Legend ' + (legendVisible ? 'visible' : 'hidden') + ' on canvas');
+  showToast('Legend ' + (legendVisible ? 'visible' : 'hidden'));
 }
 
-function moveLegend() {
-  showToast('Click on canvas to place the legend');
-  const handler = (e) => {
-    const r = wrap.getBoundingClientRect();
-    const wp = toWorld(e.clientX - r.left, e.clientY - r.top);
-    legendX = wp.x; legendY = wp.y;
-    renderDraw();
-    wrap.removeEventListener('click', handler);
-  };
-  wrap.addEventListener('click', handler);
+function renderLegendPanel() {
+  const cont = document.getElementById('legend-items');
+  if (!cont) return;
+  const shapes = [
+    ['rect','■'],['circle','●'],['halfcircle','◗'],
+    ['line','—'],['hatch','▨'],['door','🚪']
+  ];
+  cont.innerHTML = legendItems.map((item, i) => `
+    <div style="background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:6px;">
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+        <div style="width:14px;height:14px;border-radius:2px;background:${item.color};flex-shrink:0;border:1px solid ${item.color}aa"></div>
+        <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.text}</span>
+        <span style="cursor:pointer;color:var(--muted);font-size:12px;padding:0 2px" onclick="editLegendItem(${i})" title="Edit text">✏</span>
+        <span style="cursor:pointer;color:#f87171;font-size:12px;padding:0 2px" onclick="removeLegendItem(${i})" title="Remove">✕</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+        <span style="font-size:9px;color:var(--muted)">Color:</span>
+        <input type="color" value="${item.color}" oninput="legendItems[${i}].color=this.value;renderLegendPanel();renderDraw()" style="width:22px;height:22px;border:none;border-radius:3px;background:none;cursor:pointer;padding:0">
+        <span style="font-size:9px;color:var(--muted);margin-left:2px">Shape:</span>
+        ${shapes.map(([val,icon]) => `<div onclick="legendItems[${i}].shape='${val}';renderLegendPanel();renderDraw()" title="${val}" style="width:20px;height:20px;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;background:${(item.shape||'rect')===val?'rgba(59,130,246,0.3)':'transparent'};border:1px solid ${(item.shape||'rect')===val?'var(--accent)':'transparent'}">${icon}</div>`).join('')}
+      </div>
+    </div>
+  `).join('');
 }
 
 // ═══════════════════════════════════════════════════
