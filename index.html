@@ -2908,16 +2908,28 @@ document.getElementById('export-modal').addEventListener('click', (e) => {
 function getElementsBounds() {
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
   for (const el of elements) {
-    const bb = el.type==='wall'
-      ? { x:Math.min(el.x1,el.x2), y:Math.min(el.y1,el.y2), w:Math.abs(el.x2-el.x1)||4, h:Math.abs(el.y2-el.y1)||4 }
-      : getBounds(el);
+    let bb;
+    if (el.type === 'wall') {
+      const thick = (el.thickness || 6) / 2;
+      bb = {
+        x: Math.min(el.x1,el.x2) - thick,
+        y: Math.min(el.y1,el.y2) - thick,
+        w: Math.abs(el.x2-el.x1) + thick*2 || 4,
+        h: Math.abs(el.y2-el.y1) + thick*2 || 4
+      };
+    } else {
+      bb = getBounds(el);
+    }
     if (!bb) continue;
-    minX=Math.min(minX,bb.x); minY=Math.min(minY,bb.y);
-    maxX=Math.max(maxX,bb.x+bb.w); maxY=Math.max(maxY,bb.y+bb.h);
+    minX = Math.min(minX, bb.x);
+    minY = Math.min(minY, bb.y);
+    maxX = Math.max(maxX, bb.x + bb.w);
+    maxY = Math.max(maxY, bb.y + bb.h);
   }
   if (!isFinite(minX)) return { x:0, y:0, w:800, h:600 };
-  const PAD = 40;
-  return { x:minX-PAD, y:minY-PAD, w:(maxX-minX)+PAD*2, h:(maxY-minY)+PAD*2 };
+  // Generous padding so nothing ever clips
+  const PAD = 60;
+  return { x: minX-PAD, y: minY-PAD, w: (maxX-minX)+PAD*2, h: (maxY-minY)+PAD*2 };
 }
 
 // ── Re-render all elements at arbitrary pan/zoom ─
