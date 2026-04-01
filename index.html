@@ -2906,17 +2906,18 @@ document.getElementById('export-modal').addEventListener('click', (e) => {
 // ── Shared render helper ──────────────────────────
 // ── Compute element bounding box ─────────────────
 function getElementsBounds() {
+  // First pass — collect all non-label element bounds to find the core floor plan area
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  const structural = ['wall','cubicle','stairs','elevator','circle','halfcircle','zone','desk','table','chair','door','arch','window'];
+
   for (const el of elements) {
+    // Only use structural elements to define the bounding box
+    // This prevents stray dimension labels or annotations from distorting the export
+    if (!structural.includes(el.type)) continue;
     let bb;
     if (el.type === 'wall') {
       const thick = (el.thickness || 6) / 2;
-      bb = {
-        x: Math.min(el.x1,el.x2) - thick,
-        y: Math.min(el.y1,el.y2) - thick,
-        w: Math.abs(el.x2-el.x1) + thick*2 || 4,
-        h: Math.abs(el.y2-el.y1) + thick*2 || 4
-      };
+      bb = { x: Math.min(el.x1,el.x2)-thick, y: Math.min(el.y1,el.y2)-thick, w: Math.abs(el.x2-el.x1)+thick*2||4, h: Math.abs(el.y2-el.y1)+thick*2||4 };
     } else {
       bb = getBounds(el);
     }
@@ -2926,9 +2927,8 @@ function getElementsBounds() {
     maxX = Math.max(maxX, bb.x + bb.w);
     maxY = Math.max(maxY, bb.y + bb.h);
   }
-  if (!isFinite(minX)) return { x:0, y:0, w:800, h:600 };
-  // Generous padding so nothing ever clips
-  const PAD = 60;
+  if (!isFinite(minX)) return { x:0, y:0, w:800, h:500 };
+  const PAD = 40;
   return { x: minX-PAD, y: minY-PAD, w: (maxX-minX)+PAD*2, h: (maxY-minY)+PAD*2 };
 }
 
@@ -2966,7 +2966,7 @@ function buildExportCanvasFull({ whiteBg, addStamp, addGrid, filename, targetW, 
 
   // Compute scale so ALL elements fit inside the drawable area
   const bounds = getElementsBounds();
-  const MARGIN = 40;
+  const MARGIN = 60;
   const scaleX = (targetW - MARGIN*2) / bounds.w;
   const scaleY = (drawH   - MARGIN*2) / bounds.h;
   const exportZoom = Math.min(scaleX, scaleY);
@@ -2991,24 +2991,25 @@ function buildExportCanvasFull({ whiteBg, addStamp, addGrid, filename, targetW, 
   // All elements re-rendered at export resolution
   renderElementsToCtx(ctx, exportPan, exportZoom);
 
-  // Legend — pin to bottom-left of the drawable area so it never clips
+  // Legend — pin to bottom-right of drawable area, fully visible
   if (legendVisible && legendItems.length > 0) {
     const savedPan = pan, savedZoom = zoom;
-
-    // Temporarily compute where legend would land at export scale
-    const testPan = exportPan, testZoom = exportZoom;
-    const { boxW, boxH } = getLegendBoxDims();
-    const scaledW = boxW * testZoom;
-    const scaledH = boxH * testZoom;
-
-    // Pin to bottom-left with a 20px margin, within drawable area
-    const pinX = MARGIN / testZoom;
-    const pinY = (drawH - scaledH - MARGIN) / testZoom;
-
-    // Override legendX/Y temporarily
     const savedLX = legendX, savedLY = legendY;
-    legendX = pinX; legendY = pinY;
-    pan = exportPan; zoom = exportZoom;
+
+    pan = exportPan;
+    zoom = exportZoom;
+    const { boxW, boxH } = getLegendBoxDims();
+
+    // boxW/H are in world units — convert to screen pixels for placement
+    const screenW = boxW * exportZoom;
+    const screenH = boxH * exportZoom;
+
+    // Place in bottom-right with 20px screen-pixel margin from edges
+    const LPAD = 20;
+    // Convert screen pixel position back to world coords for renderLegend
+    legendX = (targetW - screenW - LPAD - exportPan.x) / exportZoom;
+    legendY = (drawH   - screenH - LPAD - exportPan.y) / exportZoom;
+
     renderLegend(ctx);
     pan = savedPan; zoom = savedZoom;
     legendX = savedLX; legendY = savedLY;
@@ -3055,7 +3056,7 @@ function exportPNG() {
   const s = getExportSettings();
   const exp = buildExportCanvasFull({
     whiteBg: s.whiteBg, addStamp: s.addStamp, addGrid: s.includeGrid,
-    filename: s.filename, targetW: 3300, targetH: 2100
+    filename: s.filename, targetW: 3300, targetH: 2200
   });
   const a = document.createElement('a');
   a.download = s.filename + '.png';
@@ -3070,7 +3071,7 @@ function exportPNGClean() {
   const s = getExportSettings();
   const exp = buildExportCanvasFull({
     whiteBg: true, addStamp: s.addStamp, addGrid: s.includeGrid,
-    filename: s.filename, targetW: 3300, targetH: 2100
+    filename: s.filename, targetW: 3300, targetH: 2200
   });
   const a = document.createElement('a');
   a.download = s.filename + '-print.png';
@@ -3084,7 +3085,7 @@ function exportPNGClean() {
 function exportPrint() {
   const s = getExportSettings();
   // Render at 1.5× screen density for the print preview
-  const printW = 1400, printH = 900;
+  const printW = 1400, printH = 950;
   const exp = buildExportCanvasFull({
     whiteBg: true, addStamp: s.addStamp, addGrid: s.includeGrid,
     filename: s.filename, targetW: printW, targetH: printH
