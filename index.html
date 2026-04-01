@@ -1173,79 +1173,74 @@ function drawDoor(ctx, el, hl) {
 }
 
 // ── Arch / Door Swing ────────────────────────────
-// el.w = span width, el.h = depth of arch (auto = w/2 for quarter circle)
-// el.flip = false (swing up/left), true (swing down/right)
+// el.w      = door opening span
+// el.hinge  = 'tl' | 'tr' | 'bl' | 'br'  (which corner the hinge is on)
 // el.lineStyle = 'solid' | 'dashed' | 'dotted'
-// el.rotation = degrees to rotate the whole thing
+// el.rotation  = degrees to spin the whole unit
 function drawArch(ctx, el, hl) {
-  const span  = el.w  || 40;
-  const depth = el.h  || span;   // depth = radius of the arc
+  const span  = el.w || 40;
   const col   = hl || el.color || '#10b981';
-  const flip  = el.flip  || false;
   const style = el.lineStyle || 'solid';
+  const hinge = el.hinge || 'tl'; // top-left default
 
   ctx.save();
 
-  // Rotate around hinge corner (el.x, el.y)
-  if (el.rotation) {
-    ctx.translate(el.x, el.y);
-    ctx.rotate(el.rotation * Math.PI / 180);
-    ctx.translate(-el.x, -el.y);
-  }
+  // All four configurations map to: pivot at (px,py), leaf goes right by span,
+  // arc sweeps a quarter circle in a specific direction.
+  // We build them by transforming the canvas so the math is always the same.
+  let px = el.x, py = el.y;
+  let scaleX = 1, scaleY = 1;
+
+  // Hinge determines which corner is the pivot and which way the leaf/arc go
+  if (hinge === 'tr') { px = el.x + span; scaleX = -1; }       // mirror horizontally
+  if (hinge === 'bl') { py = el.y;        scaleY = -1; }       // mirror vertically
+  if (hinge === 'br') { px = el.x + span; py = el.y; scaleX = -1; scaleY = -1; }
+
+  // Apply user rotation around the hinge point
+  ctx.translate(px, py);
+  if (el.rotation) ctx.rotate(el.rotation * Math.PI / 180);
+  ctx.scale(scaleX, scaleY);
+  ctx.translate(-px, -py);
 
   if (hl) { ctx.shadowBlur = 6; ctx.shadowColor = col; }
   ctx.strokeStyle = col;
 
-  // Line style
-  if (style === 'dashed')  ctx.setLineDash([6, 4]);
-  else if (style === 'dotted') ctx.setLineDash([2, 3]);
-  else ctx.setLineDash([]);
+  // Helper to apply line style
+  const applyStyle = () => {
+    if (style === 'dashed')       ctx.setLineDash([6, 4]);
+    else if (style === 'dotted')  ctx.setLineDash([2, 3]);
+    else                          ctx.setLineDash([]);
+  };
 
-  // Wall stop marks at each end of the opening
-  ctx.lineWidth = 1.5;
-  const stopLen = 5;
-  // Hinge side
-  ctx.beginPath();
-  ctx.moveTo(el.x, el.y - stopLen);
-  ctx.lineTo(el.x, el.y + stopLen);
-  ctx.stroke();
-  // Far side
-  ctx.beginPath();
-  ctx.moveTo(el.x + span, el.y - stopLen);
-  ctx.lineTo(el.x + span, el.y + stopLen);
-  ctx.stroke();
-
+  // Wall stop marks (always solid short ticks)
   ctx.setLineDash([]);
+  ctx.lineWidth = 1.5;
+  const stop = 5;
+  ctx.beginPath();
+  ctx.moveTo(px, py - stop); ctx.lineTo(px, py + stop);           // hinge side
+  ctx.moveTo(px + span, py - stop); ctx.lineTo(px + span, py + stop); // far side
+  ctx.stroke();
 
-  // Door leaf — solid line regardless of style
+  // Door leaf — always solid
   ctx.lineWidth = 2.5;
+  ctx.setLineDash([]);
   ctx.beginPath();
-  ctx.moveTo(el.x, el.y);
-  ctx.lineTo(el.x + span, el.y);
+  ctx.moveTo(px, py);
+  ctx.lineTo(px + span, py);
   ctx.stroke();
 
-  // Swing arc — same style as chosen
-  if (style === 'dashed')  ctx.setLineDash([6, 4]);
-  else if (style === 'dotted') ctx.setLineDash([2, 3]);
-  else ctx.setLineDash([]);
-
+  // Swing arc — styled, quarter circle upward from hinge
+  applyStyle();
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  if (!flip) {
-    // Arc swings upward (from hinge at el.x, el.y)
-    ctx.arc(el.x, el.y, span, 0, -Math.PI / 2, true);
-  } else {
-    // Arc swings downward
-    ctx.arc(el.x, el.y, span, 0, Math.PI / 2, false);
-  }
+  ctx.arc(px, py, span, 0, -Math.PI / 2, true);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Hinge pin
+  // Hinge pin dot
   ctx.fillStyle = col;
-  ctx.lineWidth = 0;
   ctx.beginPath();
-  ctx.arc(el.x, el.y, 3, 0, Math.PI * 2);
+  ctx.arc(px, py, 3, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.shadowBlur = 0;
@@ -1752,9 +1747,13 @@ function getBounds(el) {
       const minY = Math.min(el.y1, el.y2), maxY = Math.max(el.y1, el.y2);
       return { x: minX, y: minY, w: maxX-minX || 4, h: maxY-minY || 4 };
     }
-    case 'arch':
-      // Bounding box covers the swing quarter
-      return { x: el.x, y: el.flip ? el.y : el.y - (el.w||40), w: el.w||40, h: el.w||40 };
+    case 'arch': {
+      const span = el.w || 40;
+      const h = el.hinge || 'tl';
+      const x = (h==='tr'||h==='br') ? el.x - span : el.x;
+      const y = (h==='bl'||h==='br') ? el.y : el.y - span;
+      return { x, y, w: span, h: span };
+    }
     case 'label': return { x: el.x, y: el.y, w: (el.text||'Label').length*8, h: el.fontSize||13 };
     default: return { x: el.x, y: el.y, w: el.w||60, h: el.h||40 };
   }
@@ -2299,7 +2298,7 @@ function finishDraw(s, e2) {
       break;
     }
     case 'arch': {
-      const el = { type:'arch', layer:'doors', x:s.x, y:s.y, w:Math.abs(dx)||40, h:Math.abs(dx)||40, color:col, rotation:0, flip:false, lineStyle:'solid' };
+      const el = { type:'arch', layer:'doors', x:s.x, y:s.y, w:Math.abs(dx)||40, color:col, rotation:0, hinge:'tl', lineStyle:'solid' };
       elements.push(el);
       selected = el;
       updatePropsPanel();
@@ -2559,15 +2558,16 @@ function updatePropsPanel() {
   // Arch-specific controls
   if (el.type === 'arch') {
     html += `
-    <div class="prop-row"><label>Span (W)</label><input type="number" value="${Math.round(el.w||40)}" onchange="selProp('w',+this.value);selProp('h',+this.value)"></div>
-    <div class="prop-row"><label>Flip swing</label>
-      <div style="display:flex;gap:4px;">
-        <button onclick="selProp('flip',false)" style="font-size:10px;padding:3px 8px;background:${!el.flip?'rgba(59,130,246,0.3)':'var(--panel2)'};border:1px solid ${!el.flip?'var(--accent)':'var(--border)'};color:var(--text);border-radius:3px;cursor:pointer">⌒ Up</button>
-        <button onclick="selProp('flip',true)"  style="font-size:10px;padding:3px 8px;background:${el.flip?'rgba(59,130,246,0.3)':'var(--panel2)'};border:1px solid ${el.flip?'var(--accent)':'var(--border)'};color:var(--text);border-radius:3px;cursor:pointer">⌣ Down</button>
+    <div class="prop-row"><label>Span (W)</label><input type="number" value="${Math.round(el.w||40)}" onchange="selProp('w',+this.value)"></div>
+    <div class="prop-row" style="flex-direction:column;align-items:flex-start;gap:5px"><label>Hinge corner</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;width:100%">
+        ${[['tl','↖ Top-Left'],['tr','↗ Top-Right'],['bl','↙ Bot-Left'],['br','↘ Bot-Right']].map(([val,label]) =>
+          `<button onclick="selProp('hinge','${val}')" style="font-size:10px;padding:4px 6px;background:${(el.hinge||'tl')===val?'rgba(59,130,246,0.3)':'var(--panel2)'};border:1px solid ${(el.hinge||'tl')===val?'var(--accent)':'var(--border)'};color:var(--text);border-radius:3px;cursor:pointer;text-align:left">${label}</button>`
+        ).join('')}
       </div>
     </div>
     <div class="prop-row"><label>Line style</label>
-      <div style="display:flex;gap:4px;">
+      <div style="display:flex;gap:4px;flex-wrap:wrap;">
         <button onclick="selProp('lineStyle','solid')"  style="font-size:10px;padding:3px 7px;background:${(el.lineStyle||'solid')==='solid'?'rgba(59,130,246,0.3)':'var(--panel2)'};border:1px solid ${(el.lineStyle||'solid')==='solid'?'var(--accent)':'var(--border)'};color:var(--text);border-radius:3px;cursor:pointer">—— Solid</button>
         <button onclick="selProp('lineStyle','dashed')" style="font-size:10px;padding:3px 7px;background:${el.lineStyle==='dashed'?'rgba(59,130,246,0.3)':'var(--panel2)'};border:1px solid ${el.lineStyle==='dashed'?'var(--accent)':'var(--border)'};color:var(--text);border-radius:3px;cursor:pointer">- - Dashed</button>
         <button onclick="selProp('lineStyle','dotted')" style="font-size:10px;padding:3px 7px;background:${el.lineStyle==='dotted'?'rgba(59,130,246,0.3)':'var(--panel2)'};border:1px solid ${el.lineStyle==='dotted'?'var(--accent)':'var(--border)'};color:var(--text);border-radius:3px;cursor:pointer">··· Dotted</button>
