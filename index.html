@@ -557,9 +557,25 @@
   </div>
 
   <div class="tool-group">
+    <span class="tool-label">Shapes</span>
+    <button class="tbtn" id="t-circle" onclick="setTool('circle')" title="Draw full circle">
+      <span class="icon">○</span>Circle
+    </button>
+    <button class="tbtn" id="t-halfcircle" onclick="setTool('halfcircle')" title="Draw half circle">
+      <span class="icon">◗</span>Half
+    </button>
+    <button class="tbtn" id="t-zone" onclick="setTool('zone')" title="Draw shaded zone / fill area">
+      <span class="icon">▨</span>Zone
+    </button>
+  </div>
+
+  <div class="tool-group">
     <span class="tool-label">Annotate</span>
     <button class="tbtn label" id="t-label" onclick="setTool('label')" title="Add Text Label (T)">
       <span class="icon">T</span>Label
+    </button>
+    <button class="tbtn" id="t-legend" onclick="addLegendItem()" title="Add/edit map legend">
+      <span class="icon">📋</span>Legend
     </button>
     <button class="tbtn eraser" id="t-eraser" onclick="setTool('eraser')" title="Eraser (E)">
       <span class="icon">⌫</span>Eraser
@@ -585,18 +601,23 @@
   </div>
 
   <div class="tool-group">
-    <span class="tool-label">Sketch</span>
-    <input type="range" id="sketch-opacity" min="0" max="100" value="40" oninput="setSketchOpacity(+this.value)">
-    <span style="font-size:10px;color:var(--muted)" id="so-label">40%</span>
+    <span class="tool-label">Grid</span>
+    <button class="tbtn" id="t-grid" onclick="toggleGrid()" title="Show/hide background grid">
+      <span class="icon" id="grid-icon">▦</span>Grid
+    </button>
+    <input type="range" id="grid-brightness" min="1" max="10" value="3" oninput="setGridBrightness(+this.value)" title="Grid brightness">
+    <span style="font-size:10px;color:var(--muted)" id="gb-label">3</span>
   </div>
 
   <div class="tool-group">
-    <span class="tool-label">Grid Align</span>
-    <input type="range" id="snap-size" min="5" max="50" value="20" oninput="snapSize=+this.value;document.getElementById('snap-val').textContent=this.value">
-    <span id="snap-val" style="font-size:11px;color:var(--muted)">20</span>px
-    <button class="tbtn" id="t-snap" onclick="toggleSnap()" title="Grid Align: elements stick to a grid when you draw or move them — makes everything line up neatly">
-      <span class="icon" id="snap-icon">🔲</span>Align
+    <span class="tool-label">Align to Grid</span>
+    <input type="range" id="snap-size" min="2" max="50" value="10" oninput="snapSize=+this.value;document.getElementById('snap-val').textContent=this.value" title="Grid spacing — lower = finer control">
+    <span id="snap-val" style="font-size:11px;color:var(--muted)">10</span>px
+    <button class="tbtn" id="t-snap" onclick="toggleSnap()" title="Toggle grid alignment ON/OFF. Hold SHIFT while dragging for temporary free movement.">
+      <span class="icon" id="snap-icon">🔲</span>ON
     </button>
+    <button class="tbtn" onclick="snapSize=5;document.getElementById('snap-size').value=5;document.getElementById('snap-val').textContent=5" title="Fine: 5px snap for precise placement" style="font-size:9px;padding:4px 6px">Fine</button>
+    <button class="tbtn" onclick="snapSize=20;document.getElementById('snap-size').value=20;document.getElementById('snap-val').textContent=20" title="Coarse: 20px snap for fast layout" style="font-size:9px;padding:4px 6px">Coarse</button>
   </div>
 </div>
 
@@ -608,11 +629,6 @@
     <div class="sp-section">
       <div class="sp-title">Layers</div>
       <div id="layer-list">
-        <div class="layer-item selected" data-layer="sketch">
-          <div class="layer-dot" style="background:#64748b"></div>
-          Sketch Image
-          <span class="layer-eye" onclick="toggleLayer('sketch',event)">👁</span>
-        </div>
         <div class="layer-item" data-layer="walls">
           <div class="layer-dot" style="background:#3b82f6"></div>
           Walls
@@ -654,10 +670,22 @@
         <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="setTool('desk')">🖥 Testing Desk</button>
         <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="setTool('chair')">🪑 Chair</button>
         <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="setTool('cubicle')">⬜ Room Box</button>
+        <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="setTool('circle')">○ Circle</button>
+        <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="setTool('zone')">▨ Shaded Zone</button>
         <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="placeADA()">♿ ADA Station</button>
         <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="placeOffice()">🏢 Office Set</button>
         <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="placeStairs()">🪜 Stairs</button>
         <button class="tbtn" style="width:100%;justify-content:flex-start" onclick="placeElevator()">🛗 Elevator</button>
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-title">Map Legend</div>
+      <div id="legend-items" style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px;font-size:11px"></div>
+      <button class="tbtn" style="width:100%;justify-content:flex-start;font-size:11px" onclick="addLegendItem()">＋ Add Legend Entry</button>
+      <div style="margin-top:4px;display:flex;gap:4px;">
+        <button class="tbtn" style="flex:1;font-size:10px" onclick="moveLegend()">Move Legend</button>
+        <button class="tbtn" style="flex:1;font-size:10px" onclick="toggleLegendOnCanvas()">Show on Map</button>
       </div>
     </div>
 
@@ -683,54 +711,8 @@
     <canvas id="draw-canvas"></canvas>
     <canvas id="overlay-canvas"></canvas>
 
-    <!-- Load overlay -->
-    <div id="load-overlay" onclick="handleOverlayClick(event)">
-      <div id="load-overlay-box" style="display:flex;flex-direction:column;align-items:center;gap:16px;position:relative;">
-        <button onclick="dismissOverlay()" title="Close" style="position:absolute;top:-14px;right:-14px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:10;">✕</button>
-        <h2>FLOOR PLAN EDITOR</h2>
-        <p>Drop or browse your sketch — then choose how to import it.</p>
-
-        <div class="load-drop" id="drop-zone">
-          <span class="big-icon">🗺</span>
-          <span id="drop-label">Drop sketch here or click to browse</span>
-          <span style="font-size:10px;color:var(--muted)">PNG, JPG, or PDF</span>
-        </div>
-        <input type="file" id="file-input" accept="image/*,.pdf,application/pdf" style="display:none">
-
-        <!-- Mode choice — shown after file picked -->
-        <div id="import-mode" style="display:none;flex-direction:column;gap:10px;width:320px;margin-top:4px">
-          <div style="font-size:11px;color:var(--muted);text-align:center;letter-spacing:1px;text-transform:uppercase">How do you want to import?</div>
-          <button class="import-mode-btn ai" onclick="startAIExtract()">
-            <span style="font-size:22px">🤖</span>
-            <div>
-              <div style="font-weight:700;font-size:13px;color:#a78bfa">AI Extract — Editable Elements</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px">Claude reads the sketch and generates walls, rooms, doors, desks, and labels as fully editable objects</div>
-            </div>
-          </button>
-          <button class="import-mode-btn" onclick="startUnderlayOnly()">
-            <span style="font-size:22px">🖼</span>
-            <div>
-              <div style="font-weight:700;font-size:13px">Underlay Only</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px">Show the sketch as a faded background — draw on top of it manually</div>
-            </div>
-          </button>
-          <button class="load-skip" onclick="dismissOverlay()" style="margin-top:2px">Skip — Start Blank</button>
-        </div>
-
-        <button class="load-skip" id="skip-btn" onclick="dismissOverlay()">Skip — Start Blank</button>
-      </div>
-    </div>
-
-    <!-- AI Progress overlay -->
-    <div id="ai-progress" style="display:none;position:absolute;inset:0;background:rgba(10,13,20,0.97);z-index:300;flex-direction:column;align-items:center;justify-content:center;gap:18px">
-      <div style="font-family:'Share Tech Mono',monospace;font-size:15px;color:#a78bfa;letter-spacing:3px">ANALYZING FLOOR PLAN</div>
-      <div id="ai-progress-bar-wrap" style="width:280px;height:6px;background:#1e2333;border-radius:3px;overflow:hidden">
-        <div id="ai-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);transition:width 0.5s;border-radius:3px"></div>
-      </div>
-      <div id="ai-status" style="font-size:12px;color:#94a3b8;text-align:center;max-width:340px;line-height:1.8;padding:0 20px">Sending image to Claude…</div>
-      <div id="ai-error" style="font-size:11px;color:#f87171;text-align:center;max-width:340px;line-height:1.6;padding:0 20px;display:none"></div>
-      <button id="ai-cancel-btn" onclick="cancelAI()" style="margin-top:8px;padding:7px 20px;background:transparent;border:1px solid #2a3048;color:#64748b;border-radius:5px;cursor:pointer;font-size:12px;font-family:Barlow,sans-serif">Cancel — Use as Underlay Instead</button>
-    </div>
+    <!-- Load overlay — hidden immediately on init, kept for dismissOverlay() compatibility -->
+    <div id="load-overlay" style="display:none"></div>
   </div>
 </div>
 
@@ -772,11 +754,7 @@
         <input type="text" id="ex-filename" value="OARS-FloorPlan">
       </div>
       <div class="es-row">
-        <label>Include sketch underlay</label>
-        <input type="checkbox" id="ex-sketch" checked>
-      </div>
-      <div class="es-row">
-        <label>Include grid</label>
+        <label>Include grid lines</label>
         <input type="checkbox" id="ex-grid">
       </div>
       <div class="es-row">
@@ -793,12 +771,12 @@
       <button class="export-opt" onclick="exportPNG()">
         <span class="eo-icon">🖼</span>
         <span class="eo-title">PNG Image</span>
-        <span class="eo-desc">Full resolution flat image. Best for sharing or printing.</span>
+        <span class="eo-desc">Full resolution flat image. Best for sharing or emailing.</span>
       </button>
       <button class="export-opt green" onclick="exportPNGClean()">
         <span class="eo-icon">📋</span>
-        <span class="eo-title">PNG — No Sketch</span>
-        <span class="eo-desc">Clean drawing only, no background image. White background.</span>
+        <span class="eo-title">PNG — White BG</span>
+        <span class="eo-desc">Clean white background — best for printing or sending to facilities.</span>
       </button>
       <button class="export-opt amber" onclick="exportPrint()">
         <span class="eo-icon">🖨</span>
@@ -849,6 +827,8 @@ let snapOn = true;
 let snapSize = 20;
 let wallThickness = 6;
 let customColor = '#7c3aed';
+let gridVisible = true;
+let gridBrightness = 3; // 1–10
 
 function setColor(hex) {
   customColor = hex;
@@ -863,15 +843,19 @@ function setColor(hex) {
   // Apply to selected element if any
   if (selected) { selProp('color', hex); }
 }
-let sketchImage = null;
-let sketchOpacity = 0.4;
-let layers = { sketch: true, walls: true, doors: true, windows: true, furniture: true, labels: true };
+let layers = { walls: true, doors: true, windows: true, furniture: true, labels: true };
 
 let elements = []; // all drawn elements
 let history = [];  // undo stack
 let redoStack = [];
 let selected = null;
 let hovering = null;
+
+// Legend state
+let legendItems = []; // [{color, text}]
+let legendVisible = true;
+let legendX = 20, legendY = 20; // canvas world coords
+let legendDragging = false;
 
 // Drawing state
 let isDrawing = false;
@@ -881,10 +865,18 @@ let isPanning = false;
 let panStart = { x: 0, y: 0 };
 let panOrigin = { x: 0, y: 0 };
 let spaceDown = false;
+let shiftDown = false; // held = temporarily disable snap
 let dragEl = null;
 let dragOffset = { x: 0, y: 0 };
 let dragStartPos = null;
-let resizeHandle = null; // 'nw','n','ne','e','se','s','sw','w', or wall endpoint 'p1','p2'
+let resizeHandle = null;
+
+// Group selection state
+let selectedGroup = []; // array of selected elements for multi-move
+let groupDragOffsets = []; // per-element offsets during group drag
+let isBandSelecting = false; // rubber-band drag select in progress
+let bandStart = { x: 0, y: 0 };
+let bandCurrent = { x: 0, y: 0 };
 
 // ═══════════════════════════════════════════════════
 //  CANVAS SETUP
@@ -908,7 +900,7 @@ function toScreen(wx, wy) {
   return { x: wx * zoom + pan.x, y: wy * zoom + pan.y };
 }
 function snap(v) {
-  if (!snapOn) return v;
+  if (!snapOn || shiftDown) return v;
   return Math.round(v / snapSize) * snapSize;
 }
 function snapPt(x, y) { return { x: snap(x), y: snap(y) }; }
@@ -925,22 +917,22 @@ function renderAll() {
 
 function renderBG() {
   bgCtx.clearRect(0, 0, W, H);
-  if (sketchImage && layers.sketch) {
-    bgCtx.save();
-    bgCtx.globalAlpha = sketchOpacity;
-    bgCtx.translate(pan.x, pan.y);
-    bgCtx.scale(zoom, zoom);
-    bgCtx.drawImage(sketchImage, 0, 0);
-    bgCtx.restore();
-  }
+  // Plain dark background — no sketch overlay
 }
 
 function renderGrid() {
   gridCtx.clearRect(0, 0, W, H);
+  if (!gridVisible) return;
   const step = snapSize * zoom;
-  if (step < 6) return;
-  gridCtx.strokeStyle = 'rgba(59,130,246,0.08)';
-  gridCtx.lineWidth = 1;
+  if (step < 4) return;
+
+  // Scale brightness: 1 = very faint, 10 = bright
+  const alpha = gridBrightness * 0.025; // 0.025 to 0.25
+  const majorAlpha = Math.min(alpha * 2.5, 0.6);
+
+  // Minor grid lines
+  gridCtx.strokeStyle = `rgba(99,130,200,${alpha})`;
+  gridCtx.lineWidth = 0.5;
   const ox = ((pan.x % step) + step) % step;
   const oy = ((pan.y % step) + step) % step;
   for (let x = ox; x < W; x += step) {
@@ -949,9 +941,11 @@ function renderGrid() {
   for (let y = oy; y < H; y += step) {
     gridCtx.beginPath(); gridCtx.moveTo(0, y); gridCtx.lineTo(W, y); gridCtx.stroke();
   }
-  // Major grid
+
+  // Major grid every 5 cells
   const major = step * 5;
-  gridCtx.strokeStyle = 'rgba(59,130,246,0.15)';
+  gridCtx.strokeStyle = `rgba(99,150,255,${majorAlpha})`;
+  gridCtx.lineWidth = 1;
   const omx = ((pan.x % major) + major) % major;
   const omy = ((pan.y % major) + major) % major;
   for (let x = omx; x < W; x += major) {
@@ -959,6 +953,14 @@ function renderGrid() {
   }
   for (let y = omy; y < H; y += major) {
     gridCtx.beginPath(); gridCtx.moveTo(0, y); gridCtx.lineTo(W, y); gridCtx.stroke();
+  }
+
+  // Dot at every major intersection
+  gridCtx.fillStyle = `rgba(120,160,255,${majorAlpha * 1.2})`;
+  for (let x = omx; x < W; x += major) {
+    for (let y = omy; y < H; y += major) {
+      gridCtx.beginPath(); gridCtx.arc(x, y, 1.5, 0, Math.PI*2); gridCtx.fill();
+    }
   }
 }
 
@@ -985,7 +987,64 @@ function renderDraw() {
     drawCtx.globalAlpha = 1;
   }
 
+  // Rubber-band selection rectangle
+  if (isBandSelecting) {
+    drawCtx.save();
+    drawCtx.strokeStyle = '#6366f1';
+    drawCtx.fillStyle = 'rgba(99,102,241,0.08)';
+    drawCtx.lineWidth = 1.5 / zoom;
+    drawCtx.setLineDash([5/zoom, 3/zoom]);
+    const bx = Math.min(bandStart.x, bandCurrent.x);
+    const by = Math.min(bandStart.y, bandCurrent.y);
+    const bw = Math.abs(bandCurrent.x - bandStart.x);
+    const bh = Math.abs(bandCurrent.y - bandStart.y);
+    drawCtx.fillRect(bx, by, bw, bh);
+    drawCtx.strokeRect(bx, by, bw, bh);
+    drawCtx.setLineDash([]);
+    drawCtx.restore();
+  }
+
+  // Group selection highlights
+  if (selectedGroup.length > 1) {
+    drawCtx.save();
+    selectedGroup.forEach(el => {
+      const bb = getBounds(el);
+      if (!bb) return;
+      drawCtx.strokeStyle = '#818cf8';
+      drawCtx.fillStyle = 'rgba(99,102,241,0.06)';
+      drawCtx.lineWidth = 1.5 / zoom;
+      drawCtx.setLineDash([4/zoom, 3/zoom]);
+      drawCtx.fillRect(bb.x-4, bb.y-4, bb.w+8, bb.h+8);
+      drawCtx.strokeRect(bb.x-4, bb.y-4, bb.w+8, bb.h+8);
+      drawCtx.setLineDash([]);
+    });
+    // Outer bounding box of whole group
+    let gx1=Infinity,gy1=Infinity,gx2=-Infinity,gy2=-Infinity;
+    selectedGroup.forEach(el => {
+      const bb = getBounds(el);
+      if (!bb) return;
+      gx1=Math.min(gx1,bb.x); gy1=Math.min(gy1,bb.y);
+      gx2=Math.max(gx2,bb.x+bb.w); gy2=Math.max(gy2,bb.y+bb.h);
+    });
+    drawCtx.strokeStyle = '#6366f1';
+    drawCtx.lineWidth = 2 / zoom;
+    drawCtx.setLineDash([8/zoom, 4/zoom]);
+    drawCtx.strokeRect(gx1-8, gy1-8, gx2-gx1+16, gy2-gy1+16);
+    drawCtx.setLineDash([]);
+    // Label
+    drawCtx.fillStyle = '#6366f1';
+    drawCtx.font = `bold ${11/zoom}px Barlow`;
+    drawCtx.textAlign = 'left';
+    drawCtx.fillText(`${selectedGroup.length} selected — drag to move`, gx1-8, gy1-12);
+    drawCtx.restore();
+  }
+
   drawCtx.restore();
+  renderLegend(drawCtx);
+}
+
+function drawBandSelect() {
+  // Already drawn inside renderDraw — nothing extra needed
 }
 
 // ═══════════════════════════════════════════════════
@@ -1022,6 +1081,12 @@ function drawElement(ctx, el, sel, hov) {
       drawStairs(ctx, el, hlColor); break;
     case 'elevator':
       drawElevator(ctx, el, hlColor); break;
+    case 'circle':
+      drawCircle(ctx, el, hlColor); break;
+    case 'halfcircle':
+      drawHalfCircle(ctx, el, hlColor); break;
+    case 'zone':
+      drawZone(ctx, el, hlColor); break;
     case 'label':
       drawLabel(ctx, el, hlColor); break;
   }
@@ -1046,50 +1111,51 @@ function drawWall(ctx, el, hl) {
 }
 
 function drawDoor(ctx, el, hl) {
-  const w = el.w || 30, h = el.h || 6;
+  const w = el.w || 24, h = el.h || 4;
   const col = hl || el.color || '#10b981';
   ctx.save();
-  // Rotate if needed
   if (el.rotation) {
     const cx = el.x + w/2, cy = el.y + h/2;
     ctx.translate(cx, cy);
     ctx.rotate(el.rotation * Math.PI/180);
     ctx.translate(-cx, -cy);
   }
-  ctx.strokeStyle = col;
-  ctx.lineWidth = 2;
   if (hl) { ctx.shadowBlur = 6; ctx.shadowColor = col; }
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 1.5;
 
-  // Door frame: thin rect on wall
-  ctx.fillStyle = col + '30';
-  ctx.fillRect(el.x, el.y, w, h);
-  ctx.strokeRect(el.x, el.y, w, h);
-
-  // Door leaf: line from hinge corner
-  const hingeX = el.x, hingeY = el.y + h/2;
+  // Thin wall gap indicator (two small stop marks)
   ctx.beginPath();
-  ctx.moveTo(hingeX, hingeY);
-  ctx.lineTo(hingeX + w, hingeY);
+  ctx.moveTo(el.x, el.y - 2);
+  ctx.lineTo(el.x, el.y + h + 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(el.x + w, el.y - 2);
+  ctx.lineTo(el.x + w, el.y + h + 2);
   ctx.stroke();
 
-  // Swing arc (quarter circle)
+  // Door leaf (single line from hinge)
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(hingeX, hingeY, w, 0, -Math.PI/2, true);
-  ctx.setLineDash([4, 3]);
+  ctx.moveTo(el.x, el.y + h/2);
+  ctx.lineTo(el.x + w, el.y + h/2);
+  ctx.stroke();
+
+  // Quarter-circle swing arc (dashed)
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 2]);
+  ctx.beginPath();
+  ctx.arc(el.x, el.y + h/2, w, 0, Math.PI/2);
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.shadowBlur = 0;
 
   // Hinge dot
   ctx.fillStyle = col;
-  ctx.beginPath(); ctx.arc(hingeX, hingeY, 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath();
+  ctx.arc(el.x, el.y + h/2, 2.5, 0, Math.PI*2);
+  ctx.fill();
 
-  if (el.label) {
-    ctx.fillStyle = col;
-    ctx.font = 'bold 9px Barlow';
-    ctx.textAlign = 'center';
-    ctx.fillText(el.label, el.x + w/2, el.y - 4);
-  }
+  ctx.shadowBlur = 0;
   ctx.restore();
 }
 
@@ -1275,6 +1341,150 @@ function drawElevator(ctx, el, hl) {
   ctx.shadowBlur = 0;
 }
 
+function drawCircle(ctx, el, hl) {
+  const w = el.w || 60, h = el.h || 60;
+  const cx = el.x + w/2, cy = el.y + h/2;
+  const rx = w/2, ry = h/2;
+  const col = hl || el.color || '#3b82f6';
+  const fillAlpha = el.fillOpacity !== undefined ? el.fillOpacity : 0.15;
+  ctx.save();
+  if (el.rotation) { ctx.translate(cx,cy); ctx.rotate(el.rotation*Math.PI/180); ctx.translate(-cx,-cy); }
+  if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
+  ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI*2);
+  ctx.fillStyle = col + Math.round(fillAlpha*255).toString(16).padStart(2,'0');
+  ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+  if (el.label) {
+    ctx.fillStyle = col; ctx.font = `bold ${el.labelSize||10}px Barlow`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(el.label, cx, cy);
+  }
+  ctx.shadowBlur = 0; ctx.restore();
+}
+
+function drawHalfCircle(ctx, el, hl) {
+  const w = el.w || 60, h = el.h || 30;
+  const cx = el.x + w/2, cy = el.y + h;
+  const col = hl || el.color || '#3b82f6';
+  const fillAlpha = el.fillOpacity !== undefined ? el.fillOpacity : 0.15;
+  const startAngle = el.openDown ? 0 : Math.PI;
+  const endAngle = el.openDown ? Math.PI : Math.PI*2;
+  ctx.save();
+  if (el.rotation) { ctx.translate(cx, cy-h/2); ctx.rotate(el.rotation*Math.PI/180); ctx.translate(-cx, -(cy-h/2)); }
+  if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
+  ctx.beginPath();
+  ctx.moveTo(el.x, el.y + h);
+  ctx.ellipse(cx, cy, w/2, h, 0, startAngle, endAngle);
+  ctx.closePath();
+  ctx.fillStyle = col + Math.round(fillAlpha*255).toString(16).padStart(2,'0');
+  ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+  if (el.label) {
+    ctx.fillStyle = col; ctx.font = `bold ${el.labelSize||10}px Barlow`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(el.label, cx, cy - h/2);
+  }
+  ctx.shadowBlur = 0; ctx.restore();
+}
+
+function drawZone(ctx, el, hl) {
+  const w = el.w || 100, h = el.h || 80;
+  const col = hl || el.color || '#f59e0b';
+  const fillAlpha = el.fillOpacity !== undefined ? el.fillOpacity : 0.25;
+  const pattern = el.pattern || 'solid'; // solid, hatch, dots, crosshatch
+  ctx.save();
+  if (el.rotation) {
+    ctx.translate(el.x+w/2, el.y+h/2);
+    ctx.rotate(el.rotation*Math.PI/180);
+    ctx.translate(-(el.x+w/2), -(el.y+h/2));
+  }
+  if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
+
+  // Fill
+  ctx.fillStyle = col + Math.round(fillAlpha*255).toString(16).padStart(2,'0');
+  ctx.fillRect(el.x, el.y, w, h);
+
+  // Pattern overlay
+  if (pattern === 'hatch' || pattern === 'crosshatch') {
+    ctx.save();
+    ctx.rect(el.x, el.y, w, h);
+    ctx.clip();
+    ctx.strokeStyle = col + '88';
+    ctx.lineWidth = 1;
+    const gap = 12;
+    for (let i = -h; i < w+h; i += gap) {
+      ctx.beginPath(); ctx.moveTo(el.x+i, el.y); ctx.lineTo(el.x+i-h, el.y+h); ctx.stroke();
+      if (pattern === 'crosshatch') {
+        ctx.beginPath(); ctx.moveTo(el.x+i, el.y+h); ctx.lineTo(el.x+i-h, el.y); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  } else if (pattern === 'dots') {
+    ctx.fillStyle = col + 'cc';
+    const gap = 10;
+    for (let dx = gap/2; dx < w; dx += gap) {
+      for (let dy = gap/2; dy < h; dy += gap) {
+        ctx.beginPath(); ctx.arc(el.x+dx, el.y+dy, 1.5, 0, Math.PI*2); ctx.fill();
+      }
+    }
+  }
+
+  // Border
+  ctx.strokeStyle = col; ctx.lineWidth = hl ? 2.5 : 1.5;
+  ctx.setLineDash([6,4]); ctx.strokeRect(el.x, el.y, w, h); ctx.setLineDash([]);
+
+  // Label
+  if (el.label) {
+    ctx.fillStyle = col; ctx.font = `bold ${el.labelSize||11}px Barlow`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(el.label, el.x+w/2, el.y+h/2);
+  }
+  ctx.shadowBlur = 0; ctx.restore();
+}
+
+// ── Legend renderer (drawn on top of everything) ──
+function renderLegend(ctx) {
+  if (!legendVisible || legendItems.length === 0) return;
+  const PAD = 10, SW = 16, SH = 14, ROW = 22, fontSize = 12;
+  ctx.save();
+  ctx.translate(pan.x, pan.y); ctx.scale(zoom, zoom);
+  const maxText = legendItems.reduce((m,i) => Math.max(m, i.text.length), 0);
+  const boxW = PAD*2 + SW + 8 + Math.min(maxText, 24) * 7;
+  const boxH = PAD*2 + ROW * legendItems.length + 6;
+  // Background
+  ctx.fillStyle = 'rgba(15,17,23,0.88)';
+  ctx.strokeStyle = '#3b82f6';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, legendX, legendY, boxW, boxH, 6);
+  ctx.fill(); ctx.stroke();
+  // Title
+  ctx.fillStyle = '#3b82f6';
+  ctx.font = 'bold 10px Barlow';
+  ctx.textAlign = 'left';
+  ctx.fillText('LEGEND', legendX + PAD, legendY + PAD + 8);
+  // Items
+  legendItems.forEach((item, i) => {
+    const iy = legendY + PAD + 20 + i * ROW;
+    ctx.fillStyle = item.color;
+    ctx.fillRect(legendX + PAD, iy, SW, SH);
+    ctx.strokeStyle = item.color + 'cc'; ctx.lineWidth = 1;
+    ctx.strokeRect(legendX + PAD, iy, SW, SH);
+    ctx.fillStyle = '#e2e8f0'; ctx.font = `${fontSize}px Barlow`;
+    ctx.fillText(item.text, legendX + PAD + SW + 8, iy + SH - 2);
+  });
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
 function drawLabel(ctx, el, hl) {
   const col = hl || el.color || '#e2e8f0';
   const angle = (el.rotation || 0) * Math.PI / 180;
@@ -1351,8 +1561,6 @@ function getBounds(el) {
     default: return { x: el.x, y: el.y, w: el.w||60, h: el.h||40 };
   }
 }
-
-// ── Resize handles ────────────────────────────────
 const HANDLE_NAMES = ['nw','n','ne','e','se','s','sw','w'];
 
 function getHandlePositions(el) {
@@ -1493,6 +1701,7 @@ function drawPreview(ctx) {
     case 'door':
     case 'window':
     case 'cubicle':
+    case 'zone':
     case 'desk':
     case 'table': {
       const w = c.x - s.x, h = c.y - s.y;
@@ -1501,6 +1710,18 @@ function drawPreview(ctx) {
       ctx.setLineDash([6,4]);
       ctx.strokeRect(s.x, s.y, w, h);
       ctx.setLineDash([]);
+      break;
+    }
+    case 'circle':
+    case 'halfcircle': {
+      const w = Math.abs(c.x-s.x), h = Math.abs(c.y-s.y);
+      const cx = Math.min(s.x,c.x)+w/2, cy = Math.min(s.y,c.y)+h/2;
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.setLineDash([6,4]);
+      ctx.beginPath();
+      if (currentTool === 'circle') ctx.ellipse(cx, cy, w/2, h/2, 0, 0, Math.PI*2);
+      else { ctx.moveTo(Math.min(s.x,c.x), cy+h/2); ctx.ellipse(cx, cy+h/2, w/2, h/2, 0, Math.PI, Math.PI*2); ctx.closePath(); }
+      ctx.stroke(); ctx.setLineDash([]);
       break;
     }
   }
@@ -1588,22 +1809,35 @@ wrap.addEventListener('mousemove', (e) => {
     return;
   }
 
+  if (isBandSelecting) {
+    bandCurrent = { x: mouseWorld.x, y: mouseWorld.y };
+    renderDraw();
+    drawBandSelect();
+    return;
+  }
+
   if (dragEl) {
     const wp2 = toWorld(sx, sy);
     const snp = snapPt(wp2.x, wp2.y);
 
+    // Group drag
+    if (selectedGroup.length > 1 && groupDragOffsets.length) {
+      const rawX = wp2.x, rawY = wp2.y;
+      groupDragOffsets.forEach(({ el, dx, dy }) => {
+        const nx = snap(rawX - dx), ny = snap(rawY - dy);
+        moveElement(el, nx, ny);
+      });
+      renderDraw();
+      return;
+    }
+
     if (resizeHandle !== null) {
-      // Resize mode
       resizeElement(dragEl, resizeHandle, snp.x, snp.y);
     } else {
-      // Move mode
       const nx = snp.x - dragOffset.x;
       const ny = snp.y - dragOffset.y;
       moveElement(dragEl, snap(nx), snap(ny));
-
-      // Snap door/window to nearest wall or room edge
       if (dragEl.type === 'door' || dragEl.type === 'window') snapDoorToWall(dragEl);
-      // Snap furniture inside nearest room
       if (['desk','chair','table'].includes(dragEl.type)) snapToRoom(dragEl);
     }
     renderDraw();
@@ -1647,8 +1881,8 @@ wrap.addEventListener('mousedown', (e) => {
   }
 
   if (currentTool === 'select') {
-    // Check resize handle first (if something is selected)
-    if (selected) {
+    // Check resize handle first (if single element selected)
+    if (selected && !selectedGroup.length) {
       const h = getResizeHandle(selected, wp.x, wp.y);
       if (h !== null) {
         pushHistory();
@@ -1661,21 +1895,36 @@ wrap.addEventListener('mousedown', (e) => {
     }
     const hit = hitTest(wp.x, wp.y);
     if (hit) {
-      if (hit !== selected) pushHistory();
-      selected = hit;
-      dragStartPos = JSON.parse(JSON.stringify(hit));
-      if (hit.type === 'wall') {
-        dragOffset = { x: wp.x - hit.x1, y: wp.y - hit.y1 };
-      } else {
-        dragOffset = { x: wp.x - hit.x, y: wp.y - hit.y };
+      // If clicking something already in the group, start group drag
+      if (selectedGroup.length > 1 && selectedGroup.includes(hit)) {
+        pushHistory();
+        groupDragOffsets = selectedGroup.map(el => ({
+          el,
+          dx: wp.x - (el.x1 !== undefined ? el.x1 : el.x),
+          dy: wp.y - (el.y1 !== undefined ? el.y1 : el.y)
+        }));
+        dragEl = hit; // sentinel so mousemove knows we're dragging
+        resizeHandle = null;
+        return;
       }
+      // Single element click
+      pushHistory();
+      selected = hit;
+      selectedGroup = [];
+      dragStartPos = JSON.parse(JSON.stringify(hit));
+      dragOffset = { x: wp.x - (hit.x1 !== undefined ? hit.x1 : hit.x), y: wp.y - (hit.y1 !== undefined ? hit.y1 : hit.y) };
       dragEl = hit;
       resizeHandle = null;
       renderDraw();
       updatePropsPanel();
     } else {
+      // Start rubber-band selection on empty space
       selected = null;
+      selectedGroup = [];
       resizeHandle = null;
+      isBandSelecting = true;
+      bandStart = { x: wp.x, y: wp.y };
+      bandCurrent = { x: wp.x, y: wp.y };
       renderDraw();
       updatePropsPanel();
     }
@@ -1717,10 +1966,38 @@ wrap.addEventListener('mouseup', (e) => {
     return;
   }
 
+  if (isBandSelecting) {
+    isBandSelecting = false;
+    // Select all elements inside the band rect
+    const x1 = Math.min(bandStart.x, bandCurrent.x);
+    const y1 = Math.min(bandStart.y, bandCurrent.y);
+    const x2 = Math.max(bandStart.x, bandCurrent.x);
+    const y2 = Math.max(bandStart.y, bandCurrent.y);
+    if (x2 - x1 > 4 || y2 - y1 > 4) {
+      selectedGroup = elements.filter(el => {
+        if (!layers[el.layer]) return false;
+        const bb = getBounds(el);
+        if (!bb) return false;
+        return bb.x >= x1 && bb.y >= y1 && bb.x + bb.w <= x2 && bb.y + bb.h <= y2;
+      });
+      if (selectedGroup.length === 1) { selected = selectedGroup[0]; selectedGroup = []; }
+      else if (selectedGroup.length > 1) {
+        selected = null;
+        showToast(`${selectedGroup.length} elements selected — drag any to move group`);
+      } else {
+        showToast('No elements in selection');
+      }
+    }
+    renderDraw();
+    updatePropsPanel();
+    return;
+  }
+
   if (dragEl) {
     dragEl = null;
     dragStartPos = null;
     resizeHandle = null;
+    groupDragOffsets = [];
     wrap.style.cursor = '';
     renderDraw();
     return;
@@ -1819,6 +2096,18 @@ function finishDraw(s, e2) {
     case 'cubicle':
       elements.push({ type:'cubicle', layer:'walls', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||100, h:Math.abs(dy)||80, color:col, label:'' });
       break;
+    case 'circle': {
+      const el = { type:'circle', layer:'furniture', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||60, h:Math.abs(dy)||60, color:col, label:'', fillOpacity:0.2, rotation:0 };
+      elements.push(el); break;
+    }
+    case 'halfcircle': {
+      const el = { type:'halfcircle', layer:'furniture', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||60, h:Math.abs(dy)||30, color:col, label:'', fillOpacity:0.2, rotation:0, openDown:false };
+      elements.push(el); break;
+    }
+    case 'zone': {
+      const el = { type:'zone', layer:'walls', x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(dx)||120, h:Math.abs(dy)||80, color:col, label:'', fillOpacity:0.25, pattern:'hatch', rotation:0 };
+      elements.push(el); break;
+    }
   }
   renderDraw();
   updateStatusBar();
@@ -1828,6 +2117,7 @@ function finishDraw(s, e2) {
 //  KEYBOARD
 // ═══════════════════════════════════════════════════
 document.addEventListener('keydown', (e) => {
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') shiftDown = true;
   if (e.code === 'Space' && !e.target.matches('input,textarea')) {
     spaceDown = true;
     wrap.classList.add('pan-mode');
@@ -1847,12 +2137,20 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'e' || e.key === 'E') setTool('eraser');
     if (e.key === 'h' || e.key === 'H') setTool('pan');
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (selected) { pushHistory(); elements = elements.filter(x=>x!==selected); selected=null; renderDraw(); updateStatusBar(); }
+      if (selectedGroup.length > 1) {
+        pushHistory();
+        elements = elements.filter(x => !selectedGroup.includes(x));
+        selectedGroup = []; selected = null;
+        renderDraw(); updateStatusBar(); showToast(`Deleted ${selectedGroup.length || 'group'}`);
+      } else if (selected) {
+        pushHistory(); elements = elements.filter(x=>x!==selected); selected=null; renderDraw(); updateStatusBar();
+      }
     }
-    if (e.key === 'Escape') { selected=null; isDrawing=false; renderDraw(); updatePropsPanel(); }
+    if (e.key === 'Escape') { selected=null; selectedGroup=[]; isDrawing=false; isBandSelecting=false; renderDraw(); updatePropsPanel(); }
   }
 });
 document.addEventListener('keyup', (e) => {
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') shiftDown = false;
   if (e.code === 'Space') {
     spaceDown = false;
     wrap.classList.remove('pan-mode');
@@ -1897,33 +2195,53 @@ function updateZoomDisplay() {
   document.getElementById('sb-zoom').textContent = Math.round(zoom*100)+'%';
 }
 function fitToWindow() {
-  if (sketchImage) {
-    const scaleX = (W - 40) / sketchImage.width;
-    const scaleY = (H - 40) / sketchImage.height;
-    zoom = Math.min(scaleX, scaleY);
-    pan = { x: 20, y: 20 };
+  // Fit to the bounding box of all elements, or reset to default
+  if (elements.length > 0) {
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    for (const el of elements) {
+      const bb = el.type==='wall'
+        ? {x:Math.min(el.x1,el.x2),y:Math.min(el.y1,el.y2),w:Math.abs(el.x2-el.x1),h:Math.abs(el.y2-el.y1)}
+        : getBounds(el);
+      if (!bb) continue;
+      minX=Math.min(minX,bb.x); minY=Math.min(minY,bb.y);
+      maxX=Math.max(maxX,bb.x+bb.w); maxY=Math.max(maxY,bb.y+bb.h);
+    }
+    const pw=W-80, ph=H-80;
+    const fw=maxX-minX, fh=maxY-minY;
+    zoom = Math.min(pw/fw, ph/fh, 2);
+    pan = { x: 40 - minX*zoom, y: 40 - minY*zoom };
   } else {
-    zoom = 1; pan = { x: 20, y: 20 };
+    zoom = 1; pan = { x: 40, y: 40 };
   }
   renderAll(); updateZoomDisplay();
 }
 
 // ═══════════════════════════════════════════════════
-//  SNAP
+//  GRID + SNAP
 // ═══════════════════════════════════════════════════
-function toggleSnap() {
-  snapOn = !snapOn;
-  document.getElementById('snap-icon').textContent = snapOn ? '🔲' : '⬜';
-  showToast('Snap ' + (snapOn ? 'ON' : 'OFF'));
+function toggleGrid() {
+  gridVisible = !gridVisible;
+  const btn = document.getElementById('t-grid');
+  const icon = document.getElementById('grid-icon');
+  btn.style.color = gridVisible ? 'var(--accent)' : 'var(--muted)';
+  icon.style.opacity = gridVisible ? '1' : '0.3';
+  renderGrid();
 }
 
-// ═══════════════════════════════════════════════════
-//  SKETCH OPACITY
-// ═══════════════════════════════════════════════════
-function setSketchOpacity(v) {
-  sketchOpacity = v / 100;
-  document.getElementById('so-label').textContent = v + '%';
-  renderBG();
+function setGridBrightness(v) {
+  gridBrightness = v;
+  document.getElementById('gb-label').textContent = v;
+  renderGrid();
+}
+
+function toggleSnap() {
+  snapOn = !snapOn;
+  const btn = document.getElementById('t-snap');
+  document.getElementById('snap-icon').textContent = snapOn ? '🔲' : '⬜';
+  btn.querySelector ? null : null;
+  btn.style.color = snapOn ? 'var(--accent)' : 'var(--muted)';
+  btn.childNodes.forEach(n => { if (n.nodeType === 3) n.textContent = snapOn ? 'ON' : 'OFF'; });
+  showToast('Align to grid: ' + (snapOn ? 'ON — elements will snap to grid' : 'OFF — free placement'));
 }
 
 // ═══════════════════════════════════════════════════
@@ -1939,8 +2257,19 @@ function toggleLayer(name, e) {
 //  PROPERTIES PANEL
 // ═══════════════════════════════════════════════════
 function updatePropsPanel() {
-  const el = selected;
   const cont = document.getElementById('props-content');
+
+  if (selectedGroup.length > 1) {
+    cont.innerHTML = `
+      <div style="color:var(--accent);font-size:11px;font-weight:700;margin-bottom:8px">${selectedGroup.length} ELEMENTS SELECTED</div>
+      <div style="color:var(--muted);font-size:11px;line-height:1.6;margin-bottom:10px">Drag any element in the group to move all together.<br>Use Ctrl+C to copy the whole group.</div>
+      <button class="del-btn" onclick="pushHistory();elements=elements.filter(x=>!selectedGroup.includes(x));selectedGroup=[];selected=null;renderDraw();updateStatusBar();updatePropsPanel()">🗑 Delete Group</button>
+      <button class="del-btn" style="margin-top:4px;background:rgba(99,102,241,0.15);border-color:#6366f1;color:#818cf8" onclick="copySelected()">⧉ Copy Group</button>
+    `;
+    return;
+  }
+
+  const el = selected;
   if (!el) {
     cont.innerHTML = '<span style="color:var(--muted);font-size:11px">Select an element to edit.</span>';
     return;
@@ -1991,8 +2320,8 @@ function updatePropsPanel() {
   if (el.fontSize !== undefined) {
     html += `<div class="prop-row"><label>Font size</label><input type="number" value="${el.fontSize||13}" onchange="selProp('fontSize',+this.value)"></div>`;
   }
-  // Room label font size (cubicle, stairs, elevator)
-  if (['cubicle','stairs','elevator'].includes(el.type)) {
+  // Room label font size (cubicle, stairs, elevator, circle, halfcircle, zone)
+  if (['cubicle','stairs','elevator','circle','halfcircle','zone'].includes(el.type)) {
     html += `<div class="prop-row"><label>Label size</label><input type="number" value="${el.labelSize||11}" onchange="selProp('labelSize',+this.value)"></div>`;
     html += `<div class="prop-row"><label>Label angle</label>
       <div style="display:flex;gap:4px;align-items:center;">
@@ -2002,6 +2331,31 @@ function updatePropsPanel() {
         <button onclick="selProp('labelAngle',90)"  style="font-size:10px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer" title="Vertical down">↓</button>
       </div>
     </div>`;
+  }
+  // Fill opacity for shapes
+  if (['circle','halfcircle','zone','cubicle'].includes(el.type)) {
+    const pct = Math.round((el.fillOpacity !== undefined ? el.fillOpacity : 0.15) * 100);
+    html += `<div class="prop-row"><label>Fill %</label>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <input type="range" min="0" max="100" value="${pct}" style="width:70px" oninput="selProp('fillOpacity',+this.value/100);this.nextElementSibling.textContent=this.value+'%'">
+        <span style="font-size:10px;color:var(--muted);min-width:30px">${pct}%</span>
+      </div>
+    </div>`;
+  }
+  // Pattern for zone
+  if (el.type === 'zone') {
+    html += `<div class="prop-row"><label>Pattern</label>
+      <select onchange="selProp('pattern',this.value)" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:2px 4px;font-size:11px">
+        <option value="solid" ${(el.pattern||'hatch')==='solid'?'selected':''}>Solid fill</option>
+        <option value="hatch" ${(el.pattern||'hatch')==='hatch'?'selected':''}>Hatch /</option>
+        <option value="crosshatch" ${el.pattern==='crosshatch'?'selected':''}>Crosshatch X</option>
+        <option value="dots" ${el.pattern==='dots'?'selected':''}>Dots</option>
+      </select>
+    </div>`;
+  }
+  // Half circle flip
+  if (el.type === 'halfcircle') {
+    html += `<div class="prop-row"><label>Open down</label><input type="checkbox" ${el.openDown?'checked':''} onchange="selProp('openDown',this.checked)"></div>`;
   }
 
   // Color swatches
@@ -2133,35 +2487,111 @@ function placeElevator() {
 }
 
 // ═══════════════════════════════════════════════════
+//  LEGEND MANAGEMENT
+// ═══════════════════════════════════════════════════
+function addLegendItem() {
+  const text = prompt('Legend entry text (e.g. "Testing Station"):');
+  if (!text) return;
+  legendItems.push({ color: customColor, text });
+  legendVisible = true;
+  renderLegendPanel();
+  renderDraw();
+  showToast('Legend entry added');
+}
+
+function renderLegendPanel() {
+  const cont = document.getElementById('legend-items');
+  if (!cont) return;
+  cont.innerHTML = legendItems.map((item, i) => `
+    <div style="display:flex;align-items:center;gap:6px;">
+      <div style="width:14px;height:14px;border-radius:2px;background:${item.color};flex-shrink:0;cursor:pointer" onclick="changeLegendColor(${i})" title="Click to change color"></div>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)">${item.text}</span>
+      <span style="cursor:pointer;color:var(--muted);font-size:13px" onclick="editLegendItem(${i})" title="Edit">✏</span>
+      <span style="cursor:pointer;color:#f87171;font-size:13px" onclick="removeLegendItem(${i})" title="Remove">✕</span>
+    </div>
+  `).join('');
+}
+
+function editLegendItem(i) {
+  const text = prompt('Edit legend text:', legendItems[i].text);
+  if (text !== null) { legendItems[i].text = text; renderLegendPanel(); renderDraw(); }
+}
+
+function changeLegendColor(i) {
+  legendItems[i].color = customColor;
+  renderLegendPanel(); renderDraw();
+  showToast('Color updated to current color');
+}
+
+function removeLegendItem(i) {
+  legendItems.splice(i, 1);
+  renderLegendPanel(); renderDraw();
+}
+
+function toggleLegendOnCanvas() {
+  legendVisible = !legendVisible;
+  renderDraw();
+  showToast('Legend ' + (legendVisible ? 'visible' : 'hidden') + ' on canvas');
+}
+
+function moveLegend() {
+  showToast('Click on canvas to place the legend');
+  const handler = (e) => {
+    const r = wrap.getBoundingClientRect();
+    const wp = toWorld(e.clientX - r.left, e.clientY - r.top);
+    legendX = wp.x; legendY = wp.y;
+    renderDraw();
+    wrap.removeEventListener('click', handler);
+  };
+  wrap.addEventListener('click', handler);
+}
+
+// ═══════════════════════════════════════════════════
 //  COPY / PASTE
 // ═══════════════════════════════════════════════════
 let clipboard = null;
 let pasteOffset = 0;
 
 function copySelected() {
-  if (!selected) { showToast('Select something first'); return; }
-  clipboard = JSON.parse(JSON.stringify(selected));
-  pasteOffset = 0;
-  showToast('Copied — click Paste to place a copy');
+  if (selectedGroup.length > 1) {
+    clipboard = JSON.parse(JSON.stringify(selectedGroup));
+    pasteOffset = 0;
+    showToast(`Copied ${selectedGroup.length} elements`);
+  } else if (selected) {
+    clipboard = JSON.parse(JSON.stringify(selected));
+    pasteOffset = 0;
+    showToast('Copied — click Paste to place a copy');
+  } else {
+    showToast('Select something first');
+  }
 }
 
 function pasteElement() {
   if (!clipboard) { showToast('Nothing copied yet'); return; }
   pushHistory();
   pasteOffset += 20;
-  const clone = JSON.parse(JSON.stringify(clipboard));
-  // Offset so it doesn't land exactly on top
-  if (clone.type === 'wall') {
-    clone.x1 += pasteOffset; clone.y1 += pasteOffset;
-    clone.x2 += pasteOffset; clone.y2 += pasteOffset;
+  if (Array.isArray(clipboard)) {
+    // Group paste
+    const newEls = clipboard.map(el => {
+      const clone = JSON.parse(JSON.stringify(el));
+      if (clone.type === 'wall') { clone.x1 += pasteOffset; clone.y1 += pasteOffset; clone.x2 += pasteOffset; clone.y2 += pasteOffset; }
+      else { clone.x = (clone.x||0) + pasteOffset; clone.y = (clone.y||0) + pasteOffset; }
+      return clone;
+    });
+    elements.push(...newEls);
+    selectedGroup = newEls;
+    selected = null;
+    renderDraw(); updateStatusBar();
+    showToast(`Pasted ${newEls.length} elements — drag to position`);
   } else {
-    clone.x = (clone.x || 0) + pasteOffset;
-    clone.y = (clone.y || 0) + pasteOffset;
+    const clone = JSON.parse(JSON.stringify(clipboard));
+    if (clone.type === 'wall') { clone.x1 += pasteOffset; clone.y1 += pasteOffset; clone.x2 += pasteOffset; clone.y2 += pasteOffset; }
+    else { clone.x = (clone.x||0) + pasteOffset; clone.y = (clone.y||0) + pasteOffset; }
+    elements.push(clone);
+    selected = clone; selectedGroup = [];
+    renderDraw(); updateStatusBar(); updatePropsPanel();
+    showToast('Pasted — drag to position');
   }
-  elements.push(clone);
-  selected = clone;
-  renderDraw(); updateStatusBar(); updatePropsPanel();
-  showToast('Pasted — drag to position');
 }
 
 // keyboard shortcuts for copy/paste
@@ -2186,299 +2616,14 @@ function importJSON_direct() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (data.version !== 1 || !Array.isArray(data.elements)) throw new Error('Invalid project file');
-        pushHistory();
-        elements = data.elements;
-        if (data.pan) pan = data.pan;
-        if (data.zoom) zoom = data.zoom;
-        selected = null;
-        dismissOverlay();
-        renderAll(); updateStatusBar(); updatePropsPanel();
-        showToast(`✅ Loaded "${data.title || file.name}" — ${elements.length} elements`);
-      } catch(err) {
-        showToast('⚠ Could not load: ' + err.message);
-      }
+      try { loadProjectData(JSON.parse(ev.target.result), file.name); }
+      catch(err) { showToast('⚠ Could not load: ' + err.message); }
     };
     reader.readAsText(file);
   };
   inp.click();
 }
 
-// ═══════════════════════════════════════════════════
-//  IMAGE LOADING — two-path import
-// ═══════════════════════════════════════════════════
-let pendingImageDataURL = null;  // base64 data URL of loaded image
-let pendingImageObj = null;       // Image element
-
-function importImage() {
-  document.getElementById('file-input').click();
-}
-
-document.getElementById('file-input').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  loadImageFile(file);
-  e.target.value = '';
-});
-
-const dropZone = document.getElementById('drop-zone');
-dropZone.addEventListener('click', () => document.getElementById('file-input').click());
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', (e) => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) loadImageFile(file);
-});
-
-function loadImageFile(file) {
-  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-    loadPDF(file);
-  } else {
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataURL = ev.target.result;
-      const img = new Image();
-      img.onload = () => {
-        pendingImageDataURL = dataURL;
-        pendingImageObj = img;
-        showImportModeChoice(file.name);
-      };
-      img.src = dataURL;
-    };
-    reader.readAsDataURL(file);
-  }
-}
-
-function showImportModeChoice(filename) {
-  // Update drop zone to show file name
-  document.getElementById('drop-label').textContent = '✅ ' + filename;
-  dropZone.style.borderColor = '#10b981';
-  dropZone.style.color = '#10b981';
-  // Show mode buttons, hide skip
-  document.getElementById('import-mode').style.display = 'flex';
-  document.getElementById('skip-btn').style.display = 'none';
-}
-
-// ── Path A: AI Extract ────────────────────────────
-let aiAborted = false;
-
-function cancelAI() {
-  aiAborted = true;
-  document.getElementById('ai-progress').style.display = 'none';
-  startUnderlayOnly();
-}
-
-async function startAIExtract() {
-  if (!pendingImageDataURL) return;
-  aiAborted = false;
-
-  // Set underlay while AI runs
-  sketchImage = pendingImageObj;
-  sketchOpacity = 0.25;
-  document.getElementById('sketch-opacity').value = 25;
-  document.getElementById('so-label').textContent = '25%';
-  renderBG();
-
-  // Show progress panel
-  const prog = document.getElementById('ai-progress');
-  prog.style.display = 'flex';
-  document.getElementById('ai-error').style.display = 'none';
-  setAIStatus(8, 'Reading image…');
-
-  try {
-    const base64 = pendingImageDataURL.split(',')[1];
-    const mediaType = pendingImageDataURL.split(';')[0].split(':')[1] || 'image/png';
-
-    setAIStatus(20, 'Sending floor plan to Claude Vision…');
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType, data: base64 }
-            },
-            {
-              type: 'text',
-              text: `You are a floor plan digitizer. Analyze this architectural sketch and extract all rooms, walls, doors, and labeled areas as structured JSON.
-
-The image is ${pendingImageObj.naturalWidth}px wide × ${pendingImageObj.naturalHeight}px tall. All x/y coordinates must be pixel positions relative to the image top-left (0,0).
-
-Return ONLY raw JSON — no markdown fences, no explanation, nothing else. Schema:
-
-{"elements":[
-  {"type":"cubicle","layer":"walls","x":100,"y":50,"w":120,"h":80,"color":"#3b82f6","label":"ROOM NAME"},
-  {"type":"wall","layer":"walls","x1":0,"y1":0,"x2":400,"y2":0,"thickness":6,"color":"#3b82f6"},
-  {"type":"door","layer":"doors","x":200,"y":100,"w":40,"h":8,"color":"#10b981","label":""},
-  {"type":"desk","layer":"furniture","x":150,"y":120,"w":60,"h":40,"color":"#7c3aed","label":"TESTING"},
-  {"type":"label","layer":"labels","x":300,"y":200,"text":"CORRIDOR","fontSize":13,"color":"#e2e8f0","bold":false}
-]}
-
-Extract from this HPU OARS testing center floor plan:
-1. Outer perimeter walls of entire floor as wall segments
-2. Every room/office along bottom corridor (offices A,B,3,4,5,6,7,8,9,10,11 etc) as cubicle boxes
-3. Every TESTING carrel/station in the main area as desk elements — there are many rows, number them TESTING 1, TESTING 2 etc
-4. CORRIDOR label running east-west
-5. WOMEN'S RR and MEN'S RR as cubicle boxes
-6. VESTIBULE on the left as a cubicle
-7. MECHANICAL room top-left as a cubicle
-8. ADA areas as labels
-9. Any OFFICE boxes in the middle area
-10. Stairwell UP on far left
-11. All readable handwritten text as label elements
-
-Return 50-100 elements total. Estimate coordinates carefully from the image layout.`
-            }
-          ]
-        }]
-      })
-    });
-
-    if (aiAborted) return;
-    setAIStatus(65, 'Receiving Claude\'s analysis…');
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`API ${response.status}: ${errText.slice(0, 200)}`);
-    }
-
-    const data = await response.json();
-
-    if (aiAborted) return;
-    setAIStatus(75, 'Parsing response…');
-
-    if (data.error) throw new Error(data.error.message);
-
-    const rawText = data.content?.find(b => b.type === 'text')?.text || '';
-    if (!rawText) throw new Error('Empty response from Claude');
-
-    // Strip markdown fences robustly
-    const clean = rawText
-      .replace(/^```[a-z]*\n?/gm, '')
-      .replace(/```$/gm, '')
-      .trim();
-
-    let parsed;
-    try {
-      parsed = JSON.parse(clean);
-    } catch (parseErr) {
-      // Try to extract JSON object from the text
-      const match = clean.match(/\{[\s\S]*\}/);
-      if (match) parsed = JSON.parse(match[0]);
-      else throw new Error('Could not parse JSON from response');
-    }
-
-    if (!parsed.elements || !Array.isArray(parsed.elements)) {
-      throw new Error('Response missing elements array');
-    }
-
-    if (aiAborted) return;
-    setAIStatus(90, `Placing ${parsed.elements.length} elements on canvas…`);
-
-    pushHistory();
-    elements = parsed.elements.map(el => ({ rotation: 0, ...el }));
-
-    setAIStatus(100, `✅ Done! ${elements.length} elements extracted and placed.`);
-    await new Promise(r => setTimeout(r, 900));
-
-    if (aiAborted) return;
-    prog.style.display = 'none';
-    dismissOverlay();
-    fitToWindow();
-    renderAll();
-    updateStatusBar();
-    showToast(`✅ ${elements.length} elements extracted — click any to edit!`);
-
-  } catch (err) {
-    console.error('AI Extract error:', err);
-    if (aiAborted) return;
-    // Show error in the panel instead of immediately falling back
-    const errDiv = document.getElementById('ai-error');
-    errDiv.textContent = '⚠ ' + err.message;
-    errDiv.style.display = 'block';
-    setAIStatus(0, 'Something went wrong. You can cancel and use the sketch as an underlay instead, or check console for details.');
-  }
-}
-
-function setAIStatus(pct, msg) {
-  document.getElementById('ai-progress-bar').style.width = pct + '%';
-  document.getElementById('ai-status').textContent = msg;
-}
-
-// ── Path B: Underlay only ─────────────────────────
-function startUnderlayOnly() {
-  sketchImage = pendingImageObj;
-  sketchOpacity = 0.5;
-  document.getElementById('sketch-opacity').value = 50;
-  document.getElementById('so-label').textContent = '50%';
-  dismissOverlay();
-  fitToWindow();
-  renderAll();
-  showToast('Sketch loaded as underlay — draw on top to edit');
-}
-
-async function loadPDF(file) {
-  // Show status WITHOUT touching the drop zone's structure
-  const dz = document.getElementById('drop-zone');
-  dz.style.borderColor = '#f59e0b';
-  dz.style.color = '#f59e0b';
-  document.getElementById('drop-label').textContent = '⏳ Rendering PDF…';
-
-  try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-    const arrayBuffer = await file.arrayBuffer();
-    const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const totalPages = pdfDoc.numPages;
-
-    let pageNum = 1;
-    if (totalPages > 1) {
-      const answer = prompt(`PDF has ${totalPages} pages. Which page is the floor plan? (1–${totalPages})`, '1');
-      pageNum = Math.max(1, Math.min(totalPages, parseInt(answer) || 1));
-    }
-
-    const page = await pdfDoc.getPage(pageNum);
-
-    // Render at 2× scale for sharpness
-    const SCALE = 2;
-    const viewport = page.getViewport({ scale: SCALE });
-    const offscreen = document.createElement('canvas');
-    offscreen.width  = viewport.width;
-    offscreen.height = viewport.height;
-    const offCtx = offscreen.getContext('2d');
-
-    await page.render({ canvasContext: offCtx, viewport }).promise;
-
-    const dataURL = offscreen.toDataURL('image/png');
-    const img = new Image();
-    img.onload = () => {
-      pendingImageDataURL = dataURL;
-      pendingImageObj = img;
-      showImportModeChoice(file.name + ' (page ' + pageNum + ')');
-    };
-    img.src = dataURL;
-
-  } catch (err) {
-    console.error(err);
-    document.getElementById('drop-label').textContent = '⚠ PDF failed — try dropping a PNG instead';
-    dz.style.borderColor = '#ef4444';
-    dz.style.color = '#ef4444';
-    showToast('⚠ Could not render PDF');
-  }
-}
 
 function dismissOverlay() {
   document.getElementById('load-overlay').style.display = 'none';
@@ -2503,32 +2648,17 @@ document.getElementById('export-modal').addEventListener('click', (e) => {
 });
 
 // ── Shared render helper ──────────────────────────
-function buildExportCanvas({ includeSketch, includeGrid, whiteBg, addStamp }) {
+function buildExportCanvas({ includeGrid, whiteBg, addStamp }) {
   const exp = document.createElement('canvas');
   exp.width = W; exp.height = H;
   const ctx = exp.getContext('2d');
 
-  // Background
   ctx.fillStyle = whiteBg ? '#ffffff' : '#0a0d14';
   ctx.fillRect(0, 0, W, H);
 
-  // Sketch underlay
-  if (includeSketch && sketchImage && layers.sketch) {
-    ctx.save();
-    ctx.globalAlpha = sketchOpacity;
-    ctx.translate(pan.x, pan.y);
-    ctx.scale(zoom, zoom);
-    ctx.drawImage(sketchImage, 0, 0);
-    ctx.restore();
-  }
-
-  // Grid
   if (includeGrid) ctx.drawImage(gridC, 0, 0);
-
-  // Elements
   ctx.drawImage(drawC, 0, 0);
 
-  // Stamp
   if (addStamp) {
     const fname = document.getElementById('ex-filename').value || 'OARS Floor Plan';
     const dateStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
@@ -2537,7 +2667,6 @@ function buildExportCanvas({ includeSketch, includeGrid, whiteBg, addStamp }) {
     ctx.fillStyle = whiteBg ? '#1e3a5f' : '#93c5fd';
     ctx.font = '11px monospace';
     ctx.fillText(`HPU OARS · ${fname} · ${dateStr}`, 10, H - 8);
-    // Element count
     ctx.textAlign = 'right';
     ctx.fillText(`${elements.length} elements`, W - 10, H - 8);
     ctx.textAlign = 'left';
@@ -2547,11 +2676,10 @@ function buildExportCanvas({ includeSketch, includeGrid, whiteBg, addStamp }) {
 
 function getExportSettings() {
   return {
-    includeSketch: document.getElementById('ex-sketch').checked,
-    includeGrid:   document.getElementById('ex-grid').checked,
-    whiteBg:       document.getElementById('ex-white').checked,
-    addStamp:      document.getElementById('ex-stamp').checked,
-    filename:      document.getElementById('ex-filename').value || 'OARS-FloorPlan'
+    includeGrid: document.getElementById('ex-grid').checked,
+    whiteBg:     document.getElementById('ex-white').checked,
+    addStamp:    document.getElementById('ex-stamp').checked,
+    filename:    document.getElementById('ex-filename').value || 'OARS-FloorPlan'
   };
 }
 
@@ -2567,10 +2695,10 @@ function exportPNG() {
   showToast('PNG exported ✓');
 }
 
-// ── PNG clean (no sketch, white bg forced) ────────
+// ── PNG clean (white bg forced) ──────────────────
 function exportPNGClean() {
   const s = getExportSettings();
-  const exp = buildExportCanvas({ ...s, includeSketch: false, whiteBg: true });
+  const exp = buildExportCanvas({ ...s, whiteBg: true });
   const a = document.createElement('a');
   a.download = s.filename + '-clean.png';
   a.href = exp.toDataURL('image/png');
@@ -2611,6 +2739,8 @@ function exportJSON() {
     created: new Date().toISOString(),
     title: s.filename,
     pan, zoom,
+    legendItems: JSON.parse(JSON.stringify(legendItems)),
+    legendX, legendY, legendVisible,
     elements: JSON.parse(JSON.stringify(elements))
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -2622,7 +2752,21 @@ function exportJSON() {
   showToast('Project saved as JSON ✓');
 }
 
-// ── JSON Load ─────────────────────────────────────
+function loadProjectData(data, filename) {
+  if (data.version !== 1 || !Array.isArray(data.elements)) throw new Error('Invalid project file');
+  pushHistory();
+  elements = data.elements;
+  if (data.pan) pan = data.pan;
+  if (data.zoom) zoom = data.zoom;
+  if (data.legendItems) { legendItems = data.legendItems; legendX = data.legendX||20; legendY = data.legendY||20; legendVisible = data.legendVisible!==false; }
+  selected = null;
+  dismissOverlay();
+  renderAll(); updateStatusBar(); updatePropsPanel(); renderLegendPanel();
+  hideExportModal();
+  showToast(`✅ Loaded "${data.title || filename}" — ${elements.length} elements`);
+}
+
+// ── JSON Load (export modal button) ───────────────
 function importJSON() {
   document.getElementById('json-input').click();
 }
@@ -2631,21 +2775,8 @@ document.getElementById('json-input').addEventListener('change', (e) => {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (ev) => {
-    try {
-      const data = JSON.parse(ev.target.result);
-      if (data.version !== 1 || !Array.isArray(data.elements)) throw new Error('Invalid');
-      pushHistory();
-      elements = data.elements;
-      if (data.pan) pan = data.pan;
-      if (data.zoom) zoom = data.zoom;
-      selected = null;
-      dismissOverlay();
-      renderAll(); updateStatusBar(); updatePropsPanel();
-      hideExportModal();
-      showToast(`Project "${data.title || 'untitled'}" loaded ✓`);
-    } catch {
-      showToast('⚠ Could not load — invalid project file');
-    }
+    try { loadProjectData(JSON.parse(ev.target.result), file.name); }
+    catch(err) { showToast('⚠ Could not load — ' + err.message); }
   };
   reader.readAsText(file);
   e.target.value = '';
