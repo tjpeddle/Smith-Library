@@ -611,13 +611,14 @@
 
   <div class="tool-group">
     <span class="tool-label">Align to Grid</span>
-    <input type="range" id="snap-size" min="2" max="50" value="10" oninput="snapSize=+this.value;document.getElementById('snap-val').textContent=this.value" title="Grid spacing — lower = finer control">
-    <span id="snap-val" style="font-size:11px;color:var(--muted)">10</span>px
+    <input type="range" id="snap-size" min="1" max="50" value="5" oninput="snapSize=+this.value;document.getElementById('snap-val').textContent=this.value" title="Grid spacing — lower = finer control, 1-2 = almost free">
+    <span id="snap-val" style="font-size:11px;color:var(--muted)">5</span>px
     <button class="tbtn" id="t-snap" onclick="toggleSnap()" title="Toggle grid alignment ON/OFF. Hold SHIFT while dragging for temporary free movement.">
       <span class="icon" id="snap-icon">🔲</span>ON
     </button>
-    <button class="tbtn" onclick="snapSize=5;document.getElementById('snap-size').value=5;document.getElementById('snap-val').textContent=5" title="Fine: 5px snap for precise placement" style="font-size:9px;padding:4px 6px">Fine</button>
-    <button class="tbtn" onclick="snapSize=20;document.getElementById('snap-size').value=20;document.getElementById('snap-val').textContent=20" title="Coarse: 20px snap for fast layout" style="font-size:9px;padding:4px 6px">Coarse</button>
+    <button class="tbtn" onclick="snapSize=2;document.getElementById('snap-size').value=2;document.getElementById('snap-val').textContent=2" title="Almost free — 2px micro-snap" style="font-size:9px;padding:4px 6px">Free</button>
+    <button class="tbtn" onclick="snapSize=10;document.getElementById('snap-size').value=10;document.getElementById('snap-val').textContent=10" title="Medium — 10px snap for tidy layout" style="font-size:9px;padding:4px 6px">Med</button>
+    <button class="tbtn" onclick="snapSize=20;document.getElementById('snap-size').value=20;document.getElementById('snap-val').textContent=20" title="Coarse — 20px snap for fast rough layout" style="font-size:9px;padding:4px 6px">Grid</button>
   </div>
 </div>
 
@@ -824,7 +825,7 @@ let pan = { x: 0, y: 0 };
 let zoom = 1;
 let currentTool = 'select';
 let snapOn = true;
-let snapSize = 20;
+let snapSize = 5;
 let wallThickness = 6;
 let customColor = '#7c3aed';
 let gridVisible = true;
@@ -1111,49 +1112,47 @@ function drawWall(ctx, el, hl) {
 }
 
 function drawDoor(ctx, el, hl) {
-  const w = el.w || 24, h = el.h || 4;
+  const leafLen = el.w || 24;   // door opening width = leaf length
+  const thick   = 4;             // wall thickness indicator
   const col = hl || el.color || '#10b981';
   ctx.save();
+
+  // Rotate around the hinge corner
+  const hx = el.x, hy = el.y;
   if (el.rotation) {
-    const cx = el.x + w/2, cy = el.y + h/2;
-    ctx.translate(cx, cy);
-    ctx.rotate(el.rotation * Math.PI/180);
-    ctx.translate(-cx, -cy);
+    ctx.translate(hx, hy);
+    ctx.rotate(el.rotation * Math.PI / 180);
+    ctx.translate(-hx, -hy);
   }
-  if (hl) { ctx.shadowBlur = 6; ctx.shadowColor = col; }
+  if (hl) { ctx.shadowBlur = 5; ctx.shadowColor = col; }
   ctx.strokeStyle = col;
+
+  // Wall jamb marks — short perpendicular ticks at each end of opening
   ctx.lineWidth = 1.5;
-
-  // Thin wall gap indicator (two small stop marks)
   ctx.beginPath();
-  ctx.moveTo(el.x, el.y - 2);
-  ctx.lineTo(el.x, el.y + h + 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(el.x + w, el.y - 2);
-  ctx.lineTo(el.x + w, el.y + h + 2);
+  ctx.moveTo(hx,            hy - thick);  ctx.lineTo(hx,            hy + thick);
+  ctx.moveTo(hx + leafLen,  hy - thick);  ctx.lineTo(hx + leafLen,  hy + thick);
   ctx.stroke();
 
-  // Door leaf (single line from hinge)
-  ctx.lineWidth = 2;
+  // Door leaf — solid line along the opening
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.moveTo(el.x, el.y + h/2);
-  ctx.lineTo(el.x + w, el.y + h/2);
+  ctx.moveTo(hx, hy);
+  ctx.lineTo(hx + leafLen, hy);
   ctx.stroke();
 
-  // Quarter-circle swing arc (dashed)
+  // Swing arc — quarter circle from hinge, radius = leafLen
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 2]);
   ctx.beginPath();
-  ctx.arc(el.x, el.y + h/2, w, 0, Math.PI/2);
+  ctx.arc(hx, hy, leafLen, 0, Math.PI / 2);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Hinge dot
+  // Hinge pin
   ctx.fillStyle = col;
-  ctx.beginPath();
-  ctx.arc(el.x, el.y + h/2, 2.5, 0, Math.PI*2);
-  ctx.fill();
+  ctx.lineWidth = 0;
+  ctx.beginPath(); ctx.arc(hx, hy, 2, 0, Math.PI * 2); ctx.fill();
 
   ctx.shadowBlur = 0;
   ctx.restore();
@@ -1185,14 +1184,27 @@ function drawDesk(ctx, el, hl) {
   if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
   ctx.fillRect(el.x, el.y, w, h);
   ctx.strokeRect(el.x, el.y, w, h);
-  // Monitor hint
-  ctx.fillStyle = col + '60';
-  ctx.fillRect(el.x + w*0.2, el.y + h*0.15, w*0.6, h*0.4);
-  // Label
+  // Monitor hint strip
+  ctx.fillStyle = col + '50';
+  ctx.fillRect(el.x + 3, el.y + 3, w - 6, Math.min(8, h * 0.2));
+  // Label — respects labelSize, word-wraps
+  const fs = el.labelSize || 9;
   ctx.fillStyle = col;
-  ctx.font = 'bold 9px Barlow';
+  ctx.font = `bold ${fs}px Barlow`;
   ctx.textAlign = 'center';
-  ctx.fillText(el.label || 'DESK', el.x + w/2, el.y + h - 5);
+  ctx.textBaseline = 'middle';
+  const txt = el.label || 'DESK';
+  const words = txt.split(/[\n ]/);
+  let line = '', lines = [], maxW = w - 6;
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = word; } else line = test;
+  }
+  lines.push(line);
+  const lineH = fs + 2;
+  const startY = el.y + h/2 - (lines.length - 1) * lineH / 2;
+  lines.forEach((l, i) => ctx.fillText(l, el.x + w/2, startY + i * lineH, maxW));
+  ctx.textBaseline = 'alphabetic';
   ctx.shadowBlur = 0;
 }
 
@@ -1220,10 +1232,23 @@ function drawTable(ctx, el, hl) {
   if (hl) { ctx.shadowBlur = 8; ctx.shadowColor = col; }
   ctx.fillRect(el.x, el.y, w, h);
   ctx.strokeRect(el.x, el.y, w, h);
+  const fs = el.labelSize || 9;
   ctx.fillStyle = col;
-  ctx.font = 'bold 9px Barlow';
+  ctx.font = `bold ${fs}px Barlow`;
   ctx.textAlign = 'center';
-  ctx.fillText(el.label || 'TABLE', el.x + w/2, el.y + h/2 + 4);
+  ctx.textBaseline = 'middle';
+  const txt = el.label || 'TABLE';
+  const words = txt.split(/[\n ]/);
+  let line = '', lines = [], maxW = w - 6;
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = word; } else line = test;
+  }
+  lines.push(line);
+  const lineH = fs + 2;
+  const startY = el.y + h/2 - (lines.length - 1) * lineH / 2;
+  lines.forEach((l, i) => ctx.fillText(l, el.x + w/2, startY + i * lineH, maxW));
+  ctx.textBaseline = 'alphabetic';
   ctx.shadowBlur = 0;
 }
 
@@ -2320,9 +2345,17 @@ function updatePropsPanel() {
   if (el.fontSize !== undefined) {
     html += `<div class="prop-row"><label>Font size</label><input type="number" value="${el.fontSize||13}" onchange="selProp('fontSize',+this.value)"></div>`;
   }
-  // Room label font size (cubicle, stairs, elevator, circle, halfcircle, zone)
-  if (['cubicle','stairs','elevator','circle','halfcircle','zone'].includes(el.type)) {
-    html += `<div class="prop-row"><label>Label size</label><input type="number" value="${el.labelSize||11}" onchange="selProp('labelSize',+this.value)"></div>`;
+  // Label size — available for ALL element types that have a label/text
+  if (['cubicle','stairs','elevator','circle','halfcircle','zone','desk','table'].includes(el.type)) {
+    html += `<div class="prop-row"><label>Font size</label>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <input type="number" min="6" max="48" value="${el.labelSize||9}" onchange="selProp('labelSize',+this.value)" style="width:48px">
+        <button onclick="selProp('labelSize',7)"  style="font-size:9px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer">XS</button>
+        <button onclick="selProp('labelSize',9)"  style="font-size:9px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer">S</button>
+        <button onclick="selProp('labelSize',11)" style="font-size:9px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer">M</button>
+        <button onclick="selProp('labelSize',14)" style="font-size:9px;padding:2px 5px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer">L</button>
+      </div>
+    </div>`;
     html += `<div class="prop-row"><label>Label angle</label>
       <div style="display:flex;gap:4px;align-items:center;">
         <input type="number" value="${el.labelAngle||0}" onchange="selProp('labelAngle',+this.value)" style="width:48px">
@@ -2332,7 +2365,6 @@ function updatePropsPanel() {
       </div>
     </div>`;
   }
-  // Fill opacity for shapes
   if (['circle','halfcircle','zone','cubicle'].includes(el.type)) {
     const pct = Math.round((el.fillOpacity !== undefined ? el.fillOpacity : 0.15) * 100);
     html += `<div class="prop-row"><label>Fill %</label>
