@@ -2948,55 +2948,80 @@ function buildExportCanvasFull({ whiteBg, addStamp, addGrid, filename, targetW, 
   ctx.fillStyle = whiteBg ? '#ffffff' : '#0d1017';
   ctx.fillRect(0, 0, targetW, targetH);
 
-  // Compute scale so ALL elements fit with padding
+  // Reserve bottom for stamp
+  const stampH = addStamp ? 32 : 0;
+  const drawH  = targetH - stampH;
+
+  // Compute scale so ALL elements fit inside the drawable area
   const bounds = getElementsBounds();
-  const MARGIN = 32;
+  const MARGIN = 40;
   const scaleX = (targetW - MARGIN*2) / bounds.w;
-  const scaleY = (targetH - MARGIN*2) / bounds.h;
+  const scaleY = (drawH   - MARGIN*2) / bounds.h;
   const exportZoom = Math.min(scaleX, scaleY);
   const exportPan = {
     x: MARGIN - bounds.x * exportZoom + ((targetW - MARGIN*2) - bounds.w * exportZoom) / 2,
-    y: MARGIN - bounds.y * exportZoom + ((targetH - MARGIN*2) - bounds.h * exportZoom) / 2
+    y: MARGIN - bounds.y * exportZoom + ((drawH   - MARGIN*2) - bounds.h * exportZoom) / 2
   };
 
   // Optional grid
   if (addGrid) {
     const step = snapSize * exportZoom;
     if (step >= 4) {
-      ctx.strokeStyle = whiteBg ? 'rgba(100,130,200,0.12)' : 'rgba(99,130,200,0.08)';
+      ctx.strokeStyle = whiteBg ? 'rgba(100,130,200,0.15)' : 'rgba(99,130,200,0.08)';
       ctx.lineWidth = 0.5;
       const ox = ((exportPan.x % step) + step) % step;
       const oy = ((exportPan.y % step) + step) % step;
-      for (let x = ox; x < targetW; x += step) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,targetH); ctx.stroke(); }
-      for (let y = oy; y < targetH; y += step) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(targetW,y); ctx.stroke(); }
+      for (let x = ox; x < targetW; x += step) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,drawH); ctx.stroke(); }
+      for (let y = oy; y < drawH; y += step) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(targetW,y); ctx.stroke(); }
     }
   }
 
   // All elements re-rendered at export resolution
   renderElementsToCtx(ctx, exportPan, exportZoom);
 
-  // Legend — re-render at export scale
+  // Legend — pin to bottom-left of the drawable area so it never clips
   if (legendVisible && legendItems.length > 0) {
-    // Temporarily override pan/zoom so renderLegend draws in the right place
     const savedPan = pan, savedZoom = zoom;
+
+    // Temporarily compute where legend would land at export scale
+    const testPan = exportPan, testZoom = exportZoom;
+    const { boxW, boxH } = getLegendBoxDims();
+    const scaledW = boxW * testZoom;
+    const scaledH = boxH * testZoom;
+
+    // Pin to bottom-left with a 20px margin, within drawable area
+    const pinX = MARGIN / testZoom;
+    const pinY = (drawH - scaledH - MARGIN) / testZoom;
+
+    // Override legendX/Y temporarily
+    const savedLX = legendX, savedLY = legendY;
+    legendX = pinX; legendY = pinY;
     pan = exportPan; zoom = exportZoom;
     renderLegend(ctx);
     pan = savedPan; zoom = savedZoom;
+    legendX = savedLX; legendY = savedLY;
   }
 
-  // Stamp
+  // Stamp — light bar with readable text, works on white bg
   if (addStamp) {
     const dateStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
-    const stampH = 28;
-    ctx.fillStyle = whiteBg ? '#1e3a5f' : '#0d2044';
-    ctx.fillRect(0, targetH - stampH, targetW, stampH);
-    ctx.fillStyle = whiteBg ? '#93c5fd' : '#60a5fa';
-    ctx.font = `bold 13px monospace`;
+    const sy = targetH - stampH;
+    // Light bar on white, dark bar on dark bg
+    ctx.fillStyle = whiteBg ? '#e8eef8' : '#0d2044';
+    ctx.fillRect(0, sy, targetW, stampH);
+    // Left accent stripe
+    ctx.fillStyle = '#3b82f6';
+    ctx.fillRect(0, sy, 6, stampH);
+    // Text
+    ctx.fillStyle = whiteBg ? '#1e3a5f' : '#93c5fd';
+    ctx.font = `bold 14px monospace`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`HPU OARS  ·  ${filename}  ·  ${dateStr}`, 14, targetH - stampH/2);
+    ctx.fillText(`HPU OARS  ·  ${filename}  ·  ${dateStr}`, 18, sy + stampH/2);
     ctx.textAlign = 'right';
-    ctx.fillText(`${elements.length} elements`, targetW - 14, targetH - stampH/2);
+    ctx.font = `12px monospace`;
+    ctx.fillStyle = whiteBg ? '#4a6080' : '#7ca8d0';
+    ctx.fillText(`${elements.length} elements`, targetW - 14, sy + stampH/2);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
   }
