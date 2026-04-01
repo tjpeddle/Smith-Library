@@ -2904,29 +2904,103 @@ document.getElementById('export-modal').addEventListener('click', (e) => {
 });
 
 // ── Shared render helper ──────────────────────────
-function buildExportCanvas({ includeGrid, whiteBg, addStamp }) {
+// ── Compute element bounding box ─────────────────
+function getElementsBounds() {
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  for (const el of elements) {
+    const bb = el.type==='wall'
+      ? { x:Math.min(el.x1,el.x2), y:Math.min(el.y1,el.y2), w:Math.abs(el.x2-el.x1)||4, h:Math.abs(el.y2-el.y1)||4 }
+      : getBounds(el);
+    if (!bb) continue;
+    minX=Math.min(minX,bb.x); minY=Math.min(minY,bb.y);
+    maxX=Math.max(maxX,bb.x+bb.w); maxY=Math.max(maxY,bb.y+bb.h);
+  }
+  if (!isFinite(minX)) return { x:0, y:0, w:800, h:600 };
+  const PAD = 40;
+  return { x:minX-PAD, y:minY-PAD, w:(maxX-minX)+PAD*2, h:(maxY-minY)+PAD*2 };
+}
+
+// ── Re-render all elements at arbitrary pan/zoom ─
+function renderElementsToCtx(ctx, exportPan, exportZoom) {
+  ctx.save();
+  ctx.translate(exportPan.x, exportPan.y);
+  ctx.scale(exportZoom, exportZoom);
+  const order = ['walls','doors','windows','furniture','labels'];
+  for (const layer of order) {
+    if (!layers[layer]) continue;
+    for (const el of elements) {
+      if (el.layer !== layer) continue;
+      drawElement(ctx, el, false, false);
+    }
+  }
+  ctx.restore();
+}
+
+// ── Build a full-resolution landscape export canvas ──
+// targetW / targetH = output pixel dimensions
+function buildExportCanvasFull({ whiteBg, addStamp, addGrid, filename, targetW, targetH }) {
   const exp = document.createElement('canvas');
-  exp.width = W; exp.height = H;
+  exp.width  = targetW;
+  exp.height = targetH;
   const ctx = exp.getContext('2d');
 
-  ctx.fillStyle = whiteBg ? '#ffffff' : '#0a0d14';
-  ctx.fillRect(0, 0, W, H);
+  // Background
+  ctx.fillStyle = whiteBg ? '#ffffff' : '#0d1017';
+  ctx.fillRect(0, 0, targetW, targetH);
 
-  if (includeGrid) ctx.drawImage(gridC, 0, 0);
-  ctx.drawImage(drawC, 0, 0);
+  // Compute scale so ALL elements fit with padding
+  const bounds = getElementsBounds();
+  const MARGIN = 32;
+  const scaleX = (targetW - MARGIN*2) / bounds.w;
+  const scaleY = (targetH - MARGIN*2) / bounds.h;
+  const exportZoom = Math.min(scaleX, scaleY);
+  const exportPan = {
+    x: MARGIN - bounds.x * exportZoom + ((targetW - MARGIN*2) - bounds.w * exportZoom) / 2,
+    y: MARGIN - bounds.y * exportZoom + ((targetH - MARGIN*2) - bounds.h * exportZoom) / 2
+  };
 
-  if (addStamp) {
-    const fname = document.getElementById('ex-filename').value || 'OARS Floor Plan';
-    const dateStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
-    ctx.fillStyle = whiteBg ? 'rgba(30,58,95,0.7)' : 'rgba(59,130,246,0.5)';
-    ctx.fillRect(0, H-24, W, 24);
-    ctx.fillStyle = whiteBg ? '#1e3a5f' : '#93c5fd';
-    ctx.font = '11px monospace';
-    ctx.fillText(`HPU OARS · ${fname} · ${dateStr}`, 10, H - 8);
-    ctx.textAlign = 'right';
-    ctx.fillText(`${elements.length} elements`, W - 10, H - 8);
-    ctx.textAlign = 'left';
+  // Optional grid
+  if (addGrid) {
+    const step = snapSize * exportZoom;
+    if (step >= 4) {
+      ctx.strokeStyle = whiteBg ? 'rgba(100,130,200,0.12)' : 'rgba(99,130,200,0.08)';
+      ctx.lineWidth = 0.5;
+      const ox = ((exportPan.x % step) + step) % step;
+      const oy = ((exportPan.y % step) + step) % step;
+      for (let x = ox; x < targetW; x += step) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,targetH); ctx.stroke(); }
+      for (let y = oy; y < targetH; y += step) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(targetW,y); ctx.stroke(); }
+    }
   }
+
+  // All elements re-rendered at export resolution
+  renderElementsToCtx(ctx, exportPan, exportZoom);
+
+  // Legend — re-render at export scale
+  if (legendVisible && legendItems.length > 0) {
+    // Temporarily override pan/zoom so renderLegend draws in the right place
+    const savedPan = pan, savedZoom = zoom;
+    pan = exportPan; zoom = exportZoom;
+    renderLegend(ctx);
+    pan = savedPan; zoom = savedZoom;
+  }
+
+  // Stamp
+  if (addStamp) {
+    const dateStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    const stampH = 28;
+    ctx.fillStyle = whiteBg ? '#1e3a5f' : '#0d2044';
+    ctx.fillRect(0, targetH - stampH, targetW, stampH);
+    ctx.fillStyle = whiteBg ? '#93c5fd' : '#60a5fa';
+    ctx.font = `bold 13px monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`HPU OARS  ·  ${filename}  ·  ${dateStr}`, 14, targetH - stampH/2);
+    ctx.textAlign = 'right';
+    ctx.fillText(`${elements.length} elements`, targetW - 14, targetH - stampH/2);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
+
   return exp;
 }
 
@@ -2939,52 +3013,94 @@ function getExportSettings() {
   };
 }
 
-// ── PNG (with current settings) ──────────────────
+// ── PNG — full resolution landscape (3300×2550 = 11×8.5 @ 300dpi) ──
 function exportPNG() {
   const s = getExportSettings();
-  const exp = buildExportCanvas(s);
+  const exp = buildExportCanvasFull({
+    whiteBg: s.whiteBg, addStamp: s.addStamp, addGrid: s.includeGrid,
+    filename: s.filename, targetW: 3300, targetH: 2100
+  });
   const a = document.createElement('a');
   a.download = s.filename + '.png';
   a.href = exp.toDataURL('image/png');
   a.click();
   hideExportModal();
-  showToast('PNG exported ✓');
+  showToast('PNG exported at full resolution ✓');
 }
 
-// ── PNG clean (white bg forced) ──────────────────
+// ── PNG white — same but forces white bg ──────────
 function exportPNGClean() {
   const s = getExportSettings();
-  const exp = buildExportCanvas({ ...s, whiteBg: true });
+  const exp = buildExportCanvasFull({
+    whiteBg: true, addStamp: s.addStamp, addGrid: s.includeGrid,
+    filename: s.filename, targetW: 3300, targetH: 2100
+  });
   const a = document.createElement('a');
-  a.download = s.filename + '-clean.png';
+  a.download = s.filename + '-print.png';
   a.href = exp.toDataURL('image/png');
   a.click();
   hideExportModal();
-  showToast('Clean PNG exported ✓');
+  showToast('Print-ready PNG exported ✓');
 }
 
-// ── Print / PDF ───────────────────────────────────
+// ── Print / PDF — opens a print page sized for landscape ──
 function exportPrint() {
   const s = getExportSettings();
-  const exp = buildExportCanvas({ ...s, whiteBg: true });
+  // Render at 1.5× screen density for the print preview
+  const printW = 1400, printH = 900;
+  const exp = buildExportCanvasFull({
+    whiteBg: true, addStamp: s.addStamp, addGrid: s.includeGrid,
+    filename: s.filename, targetW: printW, targetH: printH
+  });
   const dataURL = exp.toDataURL('image/png');
   const win = window.open('', '_blank');
   win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
     <title>${s.filename}</title>
     <style>
       * { margin:0; padding:0; box-sizing:border-box; }
-      body { background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; }
-      img { max-width:100%; max-height:100vh; object-fit:contain; }
-      h1 { font-family:monospace; font-size:13px; color:#1e3a5f; padding:10px; letter-spacing:2px; text-transform:uppercase; }
-      @media print { h1 { display:none; } }
+      @page { size: landscape; margin: 0.4in; }
+      body { background:#fff; font-family: monospace; }
+      .toolbar {
+        display:flex; align-items:center; gap:12px;
+        padding:8px 12px; background:#f0f4ff;
+        border-bottom:1px solid #c7d4f0;
+        font-size:12px; color:#1e3a5f;
+      }
+      .toolbar button {
+        padding:6px 16px; background:#1e3a5f; color:#fff;
+        border:none; border-radius:4px; cursor:pointer;
+        font-size:13px; font-family:monospace; font-weight:bold;
+      }
+      .toolbar button:hover { background:#2a50a0; }
+      .plan-wrap {
+        padding: 0;
+        display:flex; align-items:center; justify-content:center;
+      }
+      img {
+        width:100%; height:auto; display:block;
+        max-width:100%; object-fit:contain;
+      }
+      @media print {
+        .toolbar { display:none; }
+        img { width:100%; height:auto; page-break-inside:avoid; }
+      }
     </style>
   </head><body>
-    <h1>HPU OARS · ${s.filename} — <button onclick="window.print()" style="cursor:pointer;font-family:monospace;font-size:12px;padding:4px 12px;border:1px solid #1e3a5f;border-radius:4px;background:#fff;color:#1e3a5f">🖨 Print / Save PDF</button></h1>
-    <img src="${dataURL}" alt="Floor Plan">
+    <div class="toolbar">
+      <span>HPU OARS · ${s.filename}</span>
+      <button onclick="window.print()">🖨 Print / Save as PDF</button>
+      <span style="margin-left:auto;color:#666;font-size:11px">
+        Tip: In print dialog → More settings → Paper size: Letter, Landscape, Scale: Fit to page
+      </span>
+    </div>
+    <div class="plan-wrap">
+      <img src="${dataURL}" alt="Floor Plan">
+    </div>
   </body></html>`);
   win.document.close();
   hideExportModal();
-  showToast('Print window opened ✓');
+  showToast('Print window opened — set landscape in print dialog ✓');
 }
 
 // ── JSON Save ─────────────────────────────────────
